@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Юнит-экономика маркетплейсов</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --accent:#0071E3;--success:#1F8A3A;--success-bg:#E8F5EC;
+  --warn:#B25000;--warn-bg:#FFF4E6;--danger:#C42828;--danger-bg:#FDECEC;
+  --text:#1D1D1F;--muted:#6E6E73;--subtle:#86868B;
+  --surface:#EFEFEA;--bg:#F5F5F0;--bg-soft:#F0F7FF;
+}
+body{font-family:-apple-system,"SF Pro Display","Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--text);font-size:15px;min-width:760px}
+.page{max-width:980px;margin:0 auto;padding:32px 24px 64px}
+h1{font-size:22px;font-weight:600;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:32px}
+.block{background:var(--surface);border-radius:12px;padding:24px;margin-bottom:20px}
+.block-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:20px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 24px}
+.field{display:flex;flex-direction:column;gap:4px}
+label{font-size:12px;color:var(--muted)}
+input[type=number],input[type=text]{width:100%;border:1px solid #D2D2D7;border-radius:8px;padding:8px 10px;font-size:15px;font-family:inherit;font-variant-numeric:tabular-nums;color:var(--text);background:#fff;outline:none;transition:border-color .15s}
+input:focus{border-color:var(--accent)}
+.result-row{display:flex;justify-content:space-between;align-items:baseline;padding:10px 14px;background:#F5F5F7;border-radius:8px;margin-top:8px}
+.result-label{font-size:13px;color:var(--muted)}
+.result-value{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text)}
+.result-value.accent{color:var(--accent)}
+.channels{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.channel-block{border-radius:10px;padding:16px}
+.channel-title{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.channel-title .ch-logo{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.ch-results{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.ch-row{display:flex;justify-content:space-between;align-items:baseline;padding:6px 10px;background:rgba(0,0,0,.04);border-radius:6px}
+.ch-label{font-size:12px;color:var(--muted)}
+.ch-val{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+
+/* WB — фирменный фиолетовый */
+.wb-block{border:1.5px solid #C9A8E0;background:#FAF4FE}
+.wb-block .channel-title{color:#6B1FA8}
+.wb-block .ch-logo{background:#6B1FA8}
+.wb-block input:focus{border-color:#8B35C8}
+.wb-block .ch-row{background:rgba(107,31,168,.06)}
+.wb-block .ch-row.main{background:rgba(107,31,168,.13)}
+.wb-block .ch-val.main-val{color:#6B1FA8}
+
+/* OZON — фирменный синий */
+.oz-block{border:1.5px solid #A3C4FF;background:#F0F6FF}
+.oz-block .channel-title{color:#0051D4}
+.oz-block .ch-logo{background:#005BFF}
+.oz-block input:focus{border-color:#005BFF}
+.oz-block .ch-row{background:rgba(0,91,255,.05)}
+.oz-block .ch-row.main{background:rgba(0,91,255,.11)}
+.oz-block .ch-val.main-val{color:#0051D4}
+.cascade{display:flex;flex-direction:column;gap:4px}
+.cas-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 14px;border-radius:8px}
+.cas-row.indent{padding-left:28px}
+.cas-row.total{background:var(--bg-soft);font-weight:600}
+.cas-row.big{background:var(--bg-soft);padding:14px 16px}
+.cas-label{font-size:14px;color:var(--text)}
+.cas-label .cas-sub{font-size:12px;color:var(--muted);margin-left:6px}
+.cas-vals{display:flex;gap:20px;align-items:baseline}
+.cas-rub{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.cas-pct{font-size:13px;color:var(--muted);width:50px;text-align:right;font-variant-numeric:tabular-nums}
+.kpi-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.kpi-card{background:#F5F5F7;border-radius:12px;padding:20px 24px}
+.kpi-label{font-size:13px;color:var(--muted);margin-bottom:4px}
+.kpi-value{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text)}
+.gates{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.gate{border-radius:10px;padding:16px;text-align:center}
+.gate-name{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.gate-val{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;margin-bottom:4px}
+.gate-status{font-size:12px;font-weight:500;margin-bottom:10px}
+.gate-refs{display:flex;flex-direction:column;gap:2px;border-top:1px solid currentColor;padding-top:8px;opacity:.55;margin-top:2px}
+.gate-ref{font-size:10px;font-weight:500;display:flex;justify-content:space-between;gap:6px}
+.gate-ref span:first-child{opacity:.8}
+.gate.pass{background:var(--success-bg);color:var(--success)}
+.gate.warn{background:var(--warn-bg);color:var(--warn)}
+.gate.fail{background:var(--danger-bg);color:var(--danger)}
+.verdict{border-radius:12px;padding:20px 28px;text-align:center;font-size:22px;font-weight:600}
+.verdict.pass{background:var(--success-bg);color:var(--success)}
+.verdict.warn{background:var(--warn-bg);color:var(--warn)}
+.verdict.fail{background:var(--danger-bg);color:var(--danger)}
+.buttons{display:flex;gap:12px;margin-top:24px;justify-content:center}
+.btn{padding:12px 28px;border:none;border-radius:980px;font-size:15px;font-weight:500;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:#E5E5EA;color:var(--text)}
+.photo-block{display:flex;align-items:flex-start;gap:20px;margin-bottom:20px}
+.photo-area{width:200px;height:200px;border-radius:10px;border:1.5px dashed #C7C7CC;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;flex-shrink:0;background:#F5F5F7;transition:border-color .15s}
+.photo-area:hover{border-color:var(--accent)}
+.photo-area img{width:100%;height:100%;object-fit:contain;position:absolute;inset:0;background:#F5F5F7}
+.photo-area .ph-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;display:none;align-items:center;justify-content:center}
+.photo-area:hover .ph-del.visible{display:flex}
+.photo-placeholder{color:var(--subtle);font-size:12px;text-align:center;padding:8px}
+.photo-info{flex:1;display:flex;flex-direction:column;gap:12px}
+.date-display{font-size:14px;color:var(--muted);margin-top:4px}
+.divider{border:none;border-top:1px solid #E5E5EA;margin:16px 0}
+input[type=file]{display:none}
+.cur-switcher{display:inline-flex;border:1px solid #D2D2D7;border-radius:8px;overflow:hidden;margin-bottom:4px}
+.cur-btn{padding:5px 12px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:#fff;color:var(--muted);font-family:inherit;transition:background .12s,color .12s}
+.cur-btn:not(:last-child){border-right:1px solid #D2D2D7}
+.cur-btn.active{background:var(--accent);color:#fff}
+.rate-field-wrap{transition:opacity .2s}
+.rate-field-wrap.hidden{opacity:0;pointer-events:none}
+
+@media print{
+  body{background:#fff;min-width:auto}
+  .page{max-width:100%;padding:10mm 15mm;font-size:11pt}
+  .buttons{display:none}
+  .block{break-inside:avoid;border:1px solid #E5E5EA;padding:12px;margin-bottom:10px}
+  input{border:none!important;padding:0!important;background:transparent!important;font-size:inherit}
+  .photo-area .ph-del{display:none!important}
+  h1{font-size:16pt}
+  @page{size:A4 portrait;margin:15mm}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Юнит-экономика маркетплейсов</h1>
+  <p class="subtitle">Калькулятор рентабельности SKU · WB и OZON</p>
+
+  <!-- BLOCK 01: Карточка товара -->
+  <div class="block">
+    <div class="block-title">01 · Карточка товара</div>
+    <div class="photo-block">
+      <div class="photo-area" id="photoArea" onclick="document.getElementById('photoInput').click()">
+        <img id="photoImg" src="" style="display:none">
+        <span class="photo-placeholder" id="photoPlaceholder">📷<br>Добавить<br>фото</span>
+        <button class="ph-del" id="photoDel" onclick="event.stopPropagation();delPhoto()">✕</button>
+      </div>
+      <input type="file" id="photoInput" accept="image/*" onchange="loadPhoto(this)">
+      <div class="photo-info">
+        <div class="field">
+          <label>Название товара</label>
+          <input type="text" id="skuName" value="Коврик для йоги FM-801" oninput="recalc()">
+        </div>
+        <div class="date-display" id="calcDate"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOCK 02: Закупка и ценообразование -->
+  <div class="block">
+    <div class="block-title">02 · Закупка и ценообразование</div>
+    <div class="grid-3" style="margin-bottom:12px">
+      <div class="field">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+          <label id="invoiceLabel">Invoice (CNY / ед.)</label>
+          <div class="cur-switcher">
+            <button class="cur-btn active" onclick="setCurrency('CNY')">CNY</button>
+            <button class="cur-btn" onclick="setCurrency('USD')">USD</button>
+            <button class="cur-btn" onclick="setCurrency('RUB')">RUB</button>
+          </div>
+        </div>
+        <input type="number" id="invoice" value="46" min="0" step="0.01" oninput="recalc()">
+      </div>
+      <div class="field rate-field-wrap" id="rateFieldWrap">
+        <label id="rateLabel">Курс RMB (₽ за 1 юань)</label>
+        <input type="number" id="rate" value="12" min="0" step="0.01" oninput="recalc()">
+      </div>
+      <div class="field">
+        <label>КЛ (коэфф. логистики)</label>
+        <input type="number" id="kl" value="1.5" min="1" step="0.01" oninput="recalc()">
+      </div>
+      <div class="field">
+        <label>MUP (наценка ×)</label>
+        <input type="number" id="mup" value="3" min="1" step="0.1" oninput="recalc()">
+      </div>
+      <div class="field">
+        <label>НДС (%)</label>
+        <input type="number" id="nds" value="22" min="0" max="100" step="1" oninput="recalc()">
+      </div>
+      <div class="field">
+        <label>ASP-дисконт от МРЦ (%)</label>
+        <input type="number" id="aspDisc" value="10" min="0" max="100" step="1" oninput="recalc()">
+      </div>
+    </div>
+    <div class="grid-3">
+      <div class="result-row">
+        <span class="result-label">COGS / ед.</span>
+        <span class="result-value" id="r_cogs">—</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">МРЦ (с НДС)</span>
+        <span class="result-value accent" id="r_mrts">—</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">ASP (без НДС)</span>
+        <span class="result-value" id="r_asp">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOCK 03: Прогноз и инвестированный капитал -->
+  <div class="block">
+    <div class="block-title">03 · Прогноз и инвестированный капитал</div>
+    <div class="grid-2" style="margin-bottom:12px">
+      <div class="field">
+        <label>Продажи, шт./год</label>
+        <input type="number" id="sales" value="950" min="0" step="1" oninput="recalc()">
+      </div>
+      <div class="field">
+        <label>Средний остаток, шт.</label>
+        <input type="number" id="avgStock" value="353.75" min="0" step="0.01" oninput="recalc()">
+      </div>
+      <div class="field">
+        <label>Дебиторка, ₽</label>
+        <input type="number" id="debit" value="7270" min="0" step="1" oninput="recalc()">
+      </div>
+      <div class="field">
+        <label>Кредиторка, ₽</label>
+        <input type="number" id="credit" value="0" min="0" step="1" oninput="recalc()">
+      </div>
+    </div>
+    <div class="grid-3">
+      <div class="result-row">
+        <span class="result-label">ТЗ (запасы)</span>
+        <span class="result-value" id="r_tz">—</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Inv. Capital</span>
+        <span class="result-value accent" id="r_ic">—</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Выручка без НДС</span>
+        <span class="result-value" id="r_rev">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOCK 04: Каналы продаж -->
+  <div class="block">
+    <div class="block-title">04 · Каналы продаж</div>
+    <div class="channels">
+      <!-- WB -->
+      <div class="channel-block wb-block">
+        <div class="channel-title"><span class="ch-logo"></span>Wildberries</div>
+        <div class="grid-2">
+          <div class="field"><label>Комиссия МП (%)</label><input type="number" id="wb_com" value="40" min="0" max="100" step="0.1" oninput="recalc()"></div>
+          <div class="field"><label>СПП (%)</label><input type="number" id="wb_spp" value="41" min="0" max="100" step="0.1" oninput="recalc()"></div>
+          <div class="field"><label>WB-кошелёк (%)</label><input type="number" id="wb_wallet" value="3" min="0" max="100" step="0.1" oninput="recalc()"></div>
+          <div class="field"><label>Логистика (%)</label><input type="number" id="wb_log" value="0" min="0" max="100" step="0.1" oninput="recalc()"></div>
+          <div class="field" style="grid-column:1/-1"><label>Реклама (%)</label><input type="number" id="wb_adv" value="7" min="0" max="100" step="0.1" oninput="recalc()"></div>
+        </div>
+        <div class="ch-results">
+          <div class="ch-row"><span class="ch-label">Цена кабинета</span><span class="ch-val" id="r_wb_cab">—</span></div>
+          <div class="ch-row"><span class="ch-label">Цена клиенту</span><span class="ch-val" id="r_wb_cust">—</span></div>
+          <div class="ch-row"><span class="ch-label">Расходы МП</span><span class="ch-val" id="r_wb_exp">—</span></div>
+          <div class="ch-row main"><span class="ch-label">Ком. маржа</span><span class="ch-val main-val" id="r_wb_margin">—</span></div>
+        </div>
+      </div>
+      <!-- OZON -->
+      <div class="channel-block oz-block">
+        <div class="channel-title"><span class="ch-logo"></span>OZON</div>
+        <div class="grid-2">
+          <div class="field"><label>Комиссия МП (%)</label><input type="number" id="oz_com" value="20" min="0" max="100" step="0.1" oninput="recalc()"></div>
+          <div class="field"><label>СПП (%)</label><input type="number" id="oz_spp" value="20" min="0" max="100" step="0.1" oninput="recalc()"></div>
+          <div class="field"><label>OZON-карта (%)</label><input type="number" id="oz_card" value="9" min="0" max="100" step="0.1" oninput="recalc()"></div>
+          <div class="field"><label>Логистика (%)</label><input type="number" id="oz_log" value="15" min="0" max="100" step="0.1" oninput="recalc()"></div>
+          <div class="field" style="grid-column:1/-1"><label>Реклама (%)</label><input type="number" id="oz_adv" value="10" min="0" max="100" step="0.1" oninput="recalc()"></div>
+        </div>
+        <div class="ch-results">
+          <div class="ch-row"><span class="ch-label">Цена кабинета (МРЦ×1.1)</span><span class="ch-val" id="r_oz_cab">—</span></div>
+          <div class="ch-row"><span class="ch-label">Цена клиенту</span><span class="ch-val" id="r_oz_cust">—</span></div>
+          <div class="ch-row"><span class="ch-label">Расходы МП</span><span class="ch-val" id="r_oz_exp">—</span></div>
+          <div class="ch-row main"><span class="ch-label">Ком. маржа</span><span class="ch-val main-val" id="r_oz_margin">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOCK 05: Каскад юнит-экономики -->
+  <div class="block">
+    <div class="block-title">05 · Каскад юнит-экономики</div>
+    <div class="cascade">
+      <div class="cas-row total">
+        <span class="cas-label">Выручка без НДС</span>
+        <div class="cas-vals"><span class="cas-rub" id="c_rev">—</span><span class="cas-pct">100%</span></div>
+      </div>
+      <div class="cas-row indent">
+        <span class="cas-label">− COGS <span class="cas-sub">себестоимость</span></span>
+        <div class="cas-vals"><span class="cas-rub" id="c_cogs">—</span><span class="cas-pct" id="c_cogs_p">—</span></div>
+      </div>
+      <div class="cas-row total">
+        <span class="cas-label">= Фронт-маржа (FM)</span>
+        <div class="cas-vals"><span class="cas-rub" id="c_fm">—</span><span class="cas-pct" id="c_fm_p">—</span></div>
+      </div>
+      <div class="cas-row indent">
+        <span class="cas-label">− OPEX <span class="cas-sub">39% от выручки</span></span>
+        <div class="cas-vals"><span class="cas-rub" id="c_opex">—</span><span class="cas-pct" id="c_opex_p">—</span></div>
+      </div>
+      <div class="cas-row total">
+        <span class="cas-label">= EBIT</span>
+        <div class="cas-vals"><span class="cas-rub" id="c_ebit">—</span><span class="cas-pct" id="c_ebit_p">—</span></div>
+      </div>
+      <div class="cas-row indent">
+        <span class="cas-label">− Налог на прибыль <span class="cas-sub">25%, ОСНО</span></span>
+        <div class="cas-vals"><span class="cas-rub" id="c_tax">—</span><span class="cas-pct" id="c_tax_p">—</span></div>
+      </div>
+      <div class="cas-row big">
+        <span class="cas-label" style="font-size:16px;font-weight:600">= NOPAT</span>
+        <div class="cas-vals"><span class="cas-rub" style="font-size:22px;color:var(--accent)" id="c_nopat">—</span><span class="cas-pct" id="c_nopat_p">—</span></div>
+      </div>
+    </div>
+    <div class="kpi-cards">
+      <div class="kpi-card">
+        <div class="kpi-label">NOPAT (чистая прибыль)</div>
+        <div class="kpi-value" id="k_nopat">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">ROIC (окупаемость)</div>
+        <div class="kpi-value" id="k_roic">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOCK 06: Dashboard Go/No-Go -->
+  <div class="block">
+    <div class="block-title">06 · Dashboard Go / No-Go</div>
+    <div class="gates">
+      <div class="gate" id="g1">
+        <div class="gate-name">G1 · FM%</div>
+        <div class="gate-val" id="g1v">—</div>
+        <div class="gate-status" id="g1s">—</div>
+        <div class="gate-refs">
+          <div class="gate-ref"><span>✅ GO</span><span>≥ 60%</span></div>
+          <div class="gate-ref"><span>⚠ Пересмотр</span><span>55–60%</span></div>
+          <div class="gate-ref"><span>⛔ Стоп</span><span>&lt; 55%</span></div>
+        </div>
+      </div>
+      <div class="gate" id="g2">
+        <div class="gate-name">G2 · Ком. маржа</div>
+        <div class="gate-val" id="g2v">—</div>
+        <div class="gate-status" id="g2s">—</div>
+        <div class="gate-refs">
+          <div class="gate-ref"><span>✅ GO</span><span>≥ 42%</span></div>
+          <div class="gate-ref"><span>⚠ Пересмотр</span><span>35–42%</span></div>
+          <div class="gate-ref"><span>⛔ Стоп</span><span>&lt; 35%</span></div>
+        </div>
+      </div>
+      <div class="gate" id="g3">
+        <div class="gate-name">G3 · EBIT</div>
+        <div class="gate-val" id="g3v">—</div>
+        <div class="gate-status" id="g3s">—</div>
+        <div class="gate-refs">
+          <div class="gate-ref"><span>✅ GO</span><span>&gt; 0 ₽</span></div>
+          <div class="gate-ref"><span>⛔ Стоп</span><span>≤ 0 ₽</span></div>
+        </div>
+      </div>
+      <div class="gate" id="g4">
+        <div class="gate-name">G4 · ROIC</div>
+        <div class="gate-val" id="g4v">—</div>
+        <div class="gate-status" id="g4s">—</div>
+        <div class="gate-refs">
+          <div class="gate-ref"><span>✅ GO</span><span>≥ 100%</span></div>
+          <div class="gate-ref"><span>⚠ Пересмотр</span><span>50–100%</span></div>
+          <div class="gate-ref"><span>⛔ Стоп</span><span>&lt; 50%</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict" id="verdict">—</div>
+  </div>
+
+  <div class="buttons">
+    <button class="btn btn-primary" onclick="window.print()">📄 Скачать PDF</button>
+    <button class="btn btn-secondary" onclick="exportExcel()">📊 Скачать Excel</button>
+  </div>
+</div>
+
+<script>
+// --- Helpers ---
+const $ = id => document.getElementById(id);
+const num = id => parseFloat($(id).value) || 0;
+const fmt = (n, digits=0) => n.toLocaleString('ru-RU', {minimumFractionDigits:digits, maximumFractionDigits:digits});
+const fmtRub = (n, digits=0) => fmt(Math.round(n), digits) + ' ₽';
+const fmtPct = n => fmt(n*100, 1) + '%';
+
+function setDate() {
+  const d = new Date();
+  const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  $('calcDate').textContent = `Дата расчёта: ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function loadPhoto(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    $('photoImg').src = e.target.result;
+    $('photoImg').style.display = 'block';
+    $('photoPlaceholder').style.display = 'none';
+    $('photoDel').classList.add('visible');
+  };
+  reader.readAsDataURL(file);
+}
+function delPhoto() {
+  $('photoImg').src = ''; $('photoImg').style.display = 'none';
+  $('photoPlaceholder').style.display = 'block';
+  $('photoDel').classList.remove('visible');
+  $('photoInput').value = '';
+}
+
+function gateClass(level){ return level===0?'pass':level===1?'warn':'fail'; }
+function gateText(level){ return level===0?'✅ GO':level===1?'⚠ Пересмотр':'⛔ Стоп'; }
+
+function setGate(id, value, displayVal, level) {
+  const el = $(id);
+  el.className = 'gate ' + gateClass(level);
+  $(id+'v').textContent = displayVal;
+  $(id+'s').textContent = gateText(level);
+}
+
+let _vals = {};
+let _currency = 'CNY';
+
+function setCurrency(cur) {
+  _currency = cur;
+  document.querySelectorAll('.cur-btn').forEach(b => b.classList.toggle('active', b.textContent === cur));
+  const wrap = $('rateFieldWrap');
+  const lbl = $('invoiceLabel');
+  const rateLbl = $('rateLabel');
+  if (cur === 'RUB') {
+    wrap.classList.add('hidden');
+    lbl.textContent = 'Invoice (RUB / ед.)';
+  } else if (cur === 'USD') {
+    wrap.classList.remove('hidden');
+    lbl.textContent = 'Invoice (USD / ед.)';
+    rateLbl.textContent = 'Курс USD (₽ за 1 доллар)';
+    if (num('rate') < 50) $('rate').value = 90;
+  } else {
+    wrap.classList.remove('hidden');
+    lbl.textContent = 'Invoice (CNY / ед.)';
+    rateLbl.textContent = 'Курс RMB (₽ за 1 юань)';
+    if (num('rate') > 50) $('rate').value = 12;
+  }
+  recalc();
+}
+
+function recalc() {
+  const invoice = num('invoice'), rate = num('rate'), kl = num('kl');
+  const mup = num('mup'), nds = num('nds')/100, aspDisc = num('aspDisc')/100;
+  const sales = num('sales'), avgStock = num('avgStock');
+  const debit = num('debit'), credit = num('credit');
+
+  // Block 02
+  const cogs = _currency === 'RUB' ? invoice * kl : invoice * rate * kl;
+  const mrts = Math.round(cogs * (1+nds) * mup / 10) * 10 - 1;
+  const asp = mrts * (1 - aspDisc) / (1 + nds);
+
+  $('r_cogs').textContent = fmtRub(cogs);
+  $('r_mrts').textContent = fmtRub(mrts);
+  $('r_asp').textContent  = fmtRub(asp);
+
+  // Block 03
+  const tz = avgStock * cogs;
+  const ic = tz + debit - credit;
+  const rev = asp * sales;
+
+  $('r_tz').textContent  = fmtRub(tz);
+  $('r_ic').textContent  = fmtRub(ic);
+  $('r_rev').textContent = fmtRub(rev);
+
+  // Block 04 - WB
+  const wb_com=num('wb_com')/100, wb_spp=num('wb_spp')/100, wb_wallet=num('wb_wallet')/100;
+  const wb_log=num('wb_log')/100, wb_adv=num('wb_adv')/100;
+  const wb_cab  = mrts;
+  const wb_cust = mrts * (1-wb_spp) * (1-wb_wallet);
+  const wb_exp  = wb_cab * (wb_com + wb_log + wb_adv);
+  const wb_marg = wb_cab - wb_exp - cogs;
+  const wb_margPct = wb_cust > 0 ? wb_marg / wb_cust : 0;
+
+  $('r_wb_cab').textContent  = fmtRub(wb_cab);
+  $('r_wb_cust').textContent = fmtRub(wb_cust);
+  $('r_wb_exp').textContent  = fmtRub(wb_exp);
+  $('r_wb_margin').textContent = fmtRub(wb_marg) + ' / ' + fmtPct(wb_margPct);
+
+  // Block 04 - OZON
+  const oz_com=num('oz_com')/100, oz_spp=num('oz_spp')/100, oz_card=num('oz_card')/100;
+  const oz_log=num('oz_log')/100, oz_adv=num('oz_adv')/100;
+  const oz_cab  = mrts * 1.1;
+  const oz_cust = mrts * (1-oz_spp) * (1-oz_card);
+  const oz_exp  = oz_cab * (oz_com + oz_log + oz_adv);
+  const oz_marg = oz_cab - oz_exp - cogs;
+  const oz_margPct = oz_cust > 0 ? oz_marg / oz_cust : 0;
+
+  $('r_oz_cab').textContent  = fmtRub(oz_cab);
+  $('r_oz_cust').textContent = fmtRub(oz_cust);
+  $('r_oz_exp').textContent  = fmtRub(oz_exp);
+  $('r_oz_margin').textContent = fmtRub(oz_marg) + ' / ' + fmtPct(oz_margPct);
+
+  // Block 05 - Cascade
+  const cogsTot = cogs * sales;
+  const fm   = rev - cogsTot;
+  const fmPct = rev > 0 ? fm / rev : 0;
+  const opex = rev * 0.39;
+  const ebit = fm - opex;
+  const tax  = ebit > 0 ? ebit * 0.25 : 0;
+  const nopat = ebit - tax;
+  const roic = ic > 0 ? nopat / ic : 0;
+
+  const pct = v => rev > 0 ? fmtPct(v/rev) : '—';
+
+  $('c_rev').textContent   = fmtRub(rev);
+  $('c_cogs').textContent  = '−' + fmtRub(cogsTot);
+  $('c_cogs_p').textContent= pct(cogsTot);
+  $('c_fm').textContent    = fmtRub(fm);
+  $('c_fm_p').textContent  = fmtPct(fmPct);
+  $('c_opex').textContent  = '−' + fmtRub(opex);
+  $('c_opex_p').textContent= pct(opex);
+  $('c_ebit').textContent  = fmtRub(ebit);
+  $('c_ebit_p').textContent= pct(ebit);
+  $('c_tax').textContent   = '−' + fmtRub(tax);
+  $('c_tax_p').textContent = pct(tax);
+  $('c_nopat').textContent = fmtRub(nopat);
+  $('c_nopat_p').textContent= pct(nopat);
+  $('k_nopat').textContent = fmtRub(nopat);
+  $('k_roic').textContent  = fmtPct(roic);
+
+  // Block 06 - Gates
+  const g1lvl = fmPct>=0.60?0:fmPct>=0.55?1:2;
+  const minMarg = Math.min(wb_margPct, oz_margPct);
+  const g2lvl = minMarg>=0.42?0:minMarg>=0.35?1:2;
+  const g3lvl = ebit>0?0:2;
+  const g4lvl = roic>=1.0?0:roic>=0.5?1:2;
+
+  setGate('g1', fmPct, fmtPct(fmPct), g1lvl);
+  setGate('g2', minMarg, fmtPct(minMarg), g2lvl);
+  setGate('g3', ebit, fmtRub(ebit), g3lvl);
+  setGate('g4', roic, fmtPct(roic), g4lvl);
+
+  const worst = Math.max(g1lvl, g2lvl, g3lvl, g4lvl);
+  const verd = $('verdict');
+  if (worst === 0) { verd.className='verdict pass'; verd.textContent='✅ GO — запускаем'; }
+  else if (worst === 1) { verd.className='verdict warn'; verd.textContent='⚠ Пересмотр — уточните параметры'; }
+  else { verd.className='verdict fail'; verd.textContent='⛔ Стоп — пересматриваем'; }
+
+  // Store for export
+  _vals = {invoice,rate,kl,mup,nds:nds*100,aspDisc:aspDisc*100,currency:_currency,
+    sales,avgStock,debit,credit,
+    wb_com:wb_com*100,wb_spp:wb_spp*100,wb_wallet:wb_wallet*100,wb_log:wb_log*100,wb_adv:wb_adv*100,
+    oz_com:oz_com*100,oz_spp:oz_spp*100,oz_card:oz_card*100,oz_log:oz_log*100,oz_adv:oz_adv*100,
+    cogs,mrts,asp,tz,ic,rev,cogsTot,fm,fmPct,opex,ebit,tax,nopat,roic,
+    wb_cab,wb_cust,wb_exp,wb_marg,wb_margPct,
+    oz_cab,oz_cust,oz_exp,oz_marg,oz_margPct,
+    skuName:$('skuName').value
+  };
+}
+
+function exportExcel() {
+  if (!window.XLSX) { alert('SheetJS не загружен. Проверьте соединение с интернетом.'); return; }
+  const v = _vals;
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Inputs
+  const inp = [
+    ['Параметр','Значение',''],
+    ['','',''],
+    ['— Блок 01: Карточка товара','',''],
+    ['Название товара', v.skuName,''],
+    ['','',''],
+    ['— Блок 02: Закупка и ценообразование','',''],
+    [`Invoice (${v.currency})`, v.invoice,''],
+    ...(v.currency==='RUB'?[]:[[`Курс ${v.currency==='USD'?'USD':'RMB'}`, v.rate,'']]),
+    ['КЛ', v.kl,''],
+    ['MUP', v.mup,''],
+    ['НДС, %', v.nds,''],
+    ['ASP-дисконт, %', v.aspDisc,''],
+    ['','',''],
+    ['— Блок 03: Прогноз','',''],
+    ['Продажи, шт./год', v.sales,''],
+    ['Средний остаток, шт.', v.avgStock,''],
+    ['Дебиторка, ₽', v.debit,''],
+    ['Кредиторка, ₽', v.credit,''],
+    ['','',''],
+    ['— Блок 04: Wildberries','',''],
+    ['Комиссия WB, %', v.wb_com,''],
+    ['СПП WB, %', v.wb_spp,''],
+    ['WB-кошелёк, %', v.wb_wallet,''],
+    ['Логистика WB, %', v.wb_log,''],
+    ['Реклама WB, %', v.wb_adv,''],
+    ['','',''],
+    ['— Блок 04: OZON','',''],
+    ['Комиссия OZON, %', v.oz_com,''],
+    ['СПП OZON, %', v.oz_spp,''],
+    ['OZON-карта, %', v.oz_card,''],
+    ['Логистика OZON, %', v.oz_log,''],
+    ['Реклама OZON, %', v.oz_adv,''],
+  ];
+  const ws1 = XLSX.utils.aoa_to_sheet(inp);
+  ws1['!cols'] = [{wch:35},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Входные данные');
+
+  // Sheet 2: Results
+  const p = n => (n*100).toFixed(1)+'%';
+  const r = n => Math.round(n);
+  const res = [
+    ['Показатель','Значение','% от выручки'],
+    ['','',''],
+    ['— Ценообразование','',''],
+    ['COGS / ед., ₽', r(v.cogs),''],
+    ['МРЦ, ₽', r(v.mrts),''],
+    ['ASP, ₽', r(v.asp),''],
+    ['','',''],
+    ['— Инвестированный капитал','',''],
+    ['ТЗ, ₽', r(v.tz),''],
+    ['Inv. Capital, ₽', r(v.ic),''],
+    ['','',''],
+    ['— WB','',''],
+    ['Цена кабинета WB, ₽', r(v.wb_cab),''],
+    ['Цена клиенту WB, ₽', r(v.wb_cust),''],
+    ['Расходы МП WB, ₽', r(v.wb_exp),''],
+    ['Ком. маржа WB, ₽', r(v.wb_marg),''],
+    ['Ком. маржа WB, %', p(v.wb_margPct),''],
+    ['','',''],
+    ['— OZON','',''],
+    ['Цена кабинета OZON, ₽', r(v.oz_cab),''],
+    ['Цена клиенту OZON, ₽', r(v.oz_cust),''],
+    ['Расходы МП OZON, ₽', r(v.oz_exp),''],
+    ['Ком. маржа OZON, ₽', r(v.oz_marg),''],
+    ['Ком. маржа OZON, %', p(v.oz_margPct),''],
+    ['','',''],
+    ['— Каскад юнит-экономики','',''],
+    ['Выручка без НДС, ₽', r(v.rev),'100%'],
+    ['COGS итого, ₽', r(v.cogsTot), p(v.cogsTot/v.rev)],
+    ['Фронт-маржа (FM), ₽', r(v.fm), p(v.fmPct)],
+    ['OPEX (39%), ₽', r(v.opex), '39%'],
+    ['EBIT, ₽', r(v.ebit), p(v.ebit/v.rev)],
+    ['Налог (25%), ₽', r(v.tax), p(v.tax/v.rev)],
+    ['NOPAT, ₽', r(v.nopat), p(v.nopat/v.rev)],
+    ['','',''],
+    ['ROIC', p(v.roic),''],
+    ['','',''],
+    ['— Gates','',''],
+    ['G1 FM%', p(v.fmPct), v.fmPct>=0.60?'GO':v.fmPct>=0.55?'Пересмотр':'Стоп'],
+    ['G2 Ком. маржа (min)', p(Math.min(v.wb_margPct,v.oz_margPct)), Math.min(v.wb_margPct,v.oz_margPct)>=0.42?'GO':Math.min(v.wb_margPct,v.oz_margPct)>=0.35?'Пересмотр':'Стоп'],
+    ['G3 EBIT', r(v.ebit)+' ₽', v.ebit>0?'GO':'Стоп'],
+    ['G4 ROIC', p(v.roic), v.roic>=1?'GO':v.roic>=0.5?'Пересмотр':'Стоп'],
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(res);
+  ws2['!cols'] = [{wch:35},{wch:20},{wch:15}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Результаты');
+
+  const date = new Date();
+  const ds = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  const name = v.skuName ? v.skuName.replace(/[/\\?%*:|"<>]/g,'').trim() : 'SKU';
+  XLSX.writeFile(wb, `Расчёт_${name}_${ds}.xlsx`);
+}
+
+// Init
+setDate();
+recalc();
+</script>
+</body>
+</html>
