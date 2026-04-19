@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Юнит-экономика маркетплейсов</title>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -390,7 +390,8 @@ function loadPhoto(input) {
   const file = input.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    $('photoImg').src = e.target.result;
+    _photoDataUrl = e.target.result;
+    $('photoImg').src = _photoDataUrl;
     $('photoImg').style.display = 'block';
     $('photoPlaceholder').style.display = 'none';
     $('photoDel').classList.add('visible');
@@ -398,6 +399,7 @@ function loadPhoto(input) {
   reader.readAsDataURL(file);
 }
 function delPhoto() {
+  _photoDataUrl = '';
   $('photoImg').src = ''; $('photoImg').style.display = 'none';
   $('photoPlaceholder').style.display = 'block';
   $('photoDel').classList.remove('visible');
@@ -416,6 +418,7 @@ function setGate(id, value, displayVal, level) {
 
 let _vals = {};
 let _currency = 'CNY';
+let _photoDataUrl = '';
 
 function setCurrency(cur) {
   _currency = cur;
@@ -546,108 +549,248 @@ function recalc() {
     cogs,mrts,asp,tz,ic,rev,cogsTot,fm,fmPct,opex,ebit,tax,nopat,roic,
     wb_cab,wb_cust,wb_exp,wb_marg,wb_margPct,
     oz_cab,oz_cust,oz_exp,oz_marg,oz_margPct,
-    skuName:$('skuName').value
+    skuName:$('skuName').value, photoDataUrl:_photoDataUrl
   };
 }
 
-function exportExcel() {
-  if (!window.XLSX) { alert('SheetJS не загружен. Проверьте соединение с интернетом.'); return; }
+async function exportExcel() {
+  if (!window.ExcelJS) { alert('ExcelJS не загружен. Проверьте соединение с интернетом.'); return; }
   const v = _vals;
-  const wb = XLSX.utils.book_new();
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Unit Economics Calculator';
+  wb.created = new Date();
+  const ws = wb.addWorksheet('Расчёт', { pageSetup:{ paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1 } });
 
-  // Sheet 1: Inputs
-  const inp = [
-    ['Параметр','Значение',''],
-    ['','',''],
-    ['— Блок 01: Карточка товара','',''],
-    ['Название товара', v.skuName,''],
-    ['','',''],
-    ['— Блок 02: Закупка и ценообразование','',''],
-    [`Invoice (${v.currency})`, v.invoice,''],
-    ...(v.currency==='RUB'?[]:[[`Курс ${v.currency==='USD'?'USD':'RMB'}`, v.rate,'']]),
-    ['КЛ', v.kl,''],
-    ['MUP', v.mup,''],
-    ['НДС, %', v.nds,''],
-    ['ASP-дисконт, %', v.aspDisc,''],
-    ['','',''],
-    ['— Блок 03: Прогноз','',''],
-    ['Продажи, шт./год', v.sales,''],
-    ['Средний остаток, шт.', v.avgStock,''],
-    ['Дебиторка, ₽', v.debit,''],
-    ['Кредиторка, ₽', v.credit,''],
-    ['','',''],
-    ['— Блок 04: Wildberries','',''],
-    ['Комиссия WB, %', v.wb_com,''],
-    ['СПП WB, %', v.wb_spp,''],
-    ['WB-кошелёк, %', v.wb_wallet,''],
-    ['Логистика WB, %', v.wb_log,''],
-    ['Реклама WB, %', v.wb_adv,''],
-    ['','',''],
-    ['— Блок 04: OZON','',''],
-    ['Комиссия OZON, %', v.oz_com,''],
-    ['СПП OZON, %', v.oz_spp,''],
-    ['OZON-карта, %', v.oz_card,''],
-    ['Логистика OZON, %', v.oz_log,''],
-    ['Реклама OZON, %', v.oz_adv,''],
+  ws.columns = [
+    {width:2},{width:28},{width:16},{width:12},{width:3},{width:28},{width:16}
+    // A=pad B=label C=val D=pct E=gap F=label2 G=val2
   ];
-  const ws1 = XLSX.utils.aoa_to_sheet(inp);
-  ws1['!cols'] = [{wch:35},{wch:20}];
-  XLSX.utils.book_append_sheet(wb, ws1, 'Входные данные');
 
-  // Sheet 2: Results
-  const p = n => (n*100).toFixed(1)+'%';
-  const r = n => Math.round(n);
-  const res = [
-    ['Показатель','Значение','% от выручки'],
-    ['','',''],
-    ['— Ценообразование','',''],
-    ['COGS / ед., ₽', r(v.cogs),''],
-    ['МРЦ, ₽', r(v.mrts),''],
-    ['ASP, ₽', r(v.asp),''],
-    ['','',''],
-    ['— Инвестированный капитал','',''],
-    ['ТЗ, ₽', r(v.tz),''],
-    ['Inv. Capital, ₽', r(v.ic),''],
-    ['','',''],
-    ['— WB','',''],
-    ['Цена кабинета WB, ₽', r(v.wb_cab),''],
-    ['Цена клиенту WB, ₽', r(v.wb_cust),''],
-    ['Расходы МП WB, ₽', r(v.wb_exp),''],
-    ['Ком. маржа WB, ₽', r(v.wb_marg),''],
-    ['Ком. маржа WB, %', p(v.wb_margPct),''],
-    ['','',''],
-    ['— OZON','',''],
-    ['Цена кабинета OZON, ₽', r(v.oz_cab),''],
-    ['Цена клиенту OZON, ₽', r(v.oz_cust),''],
-    ['Расходы МП OZON, ₽', r(v.oz_exp),''],
-    ['Ком. маржа OZON, ₽', r(v.oz_marg),''],
-    ['Ком. маржа OZON, %', p(v.oz_margPct),''],
-    ['','',''],
-    ['— Каскад юнит-экономики','',''],
-    ['Выручка без НДС, ₽', r(v.rev),'100%'],
-    ['COGS итого, ₽', r(v.cogsTot), p(v.cogsTot/v.rev)],
-    ['Фронт-маржа (FM), ₽', r(v.fm), p(v.fmPct)],
-    ['OPEX (39%), ₽', r(v.opex), '39%'],
-    ['EBIT, ₽', r(v.ebit), p(v.ebit/v.rev)],
-    ['Налог (25%), ₽', r(v.tax), p(v.tax/v.rev)],
-    ['NOPAT, ₽', r(v.nopat), p(v.nopat/v.rev)],
-    ['','',''],
-    ['ROIC', p(v.roic),''],
-    ['','',''],
-    ['— Gates','',''],
-    ['G1 FM%', p(v.fmPct), v.fmPct>=0.60?'GO':v.fmPct>=0.55?'Пересмотр':'Стоп'],
-    ['G2 Ком. маржа (min)', p(Math.min(v.wb_margPct,v.oz_margPct)), Math.min(v.wb_margPct,v.oz_margPct)>=0.42?'GO':Math.min(v.wb_margPct,v.oz_margPct)>=0.35?'Пересмотр':'Стоп'],
-    ['G3 EBIT', r(v.ebit)+' ₽', v.ebit>0?'GO':'Стоп'],
-    ['G4 ROIC', p(v.roic), v.roic>=1?'GO':v.roic>=0.5?'Пересмотр':'Стоп'],
+  const hx = h => 'FF'+h.replace('#','');
+  const fl = (cell,c) => { cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:hx(c)}}; };
+  const fn = (cell,o) => { cell.font={name:'Calibri',size:11,...o}; };
+  const al = (cell,h='left',v='middle') => { cell.alignment={horizontal:h,vertical:v,wrapText:false}; };
+  const nf = (cell,f) => { cell.numFmt=f; };
+  const C = {
+    text:'1D1D1F',muted:'6E6E73',accent:'0071E3',white:'FFFFFF',
+    surface:'EFEFEA',soft:'F0F7FF',rowAlt:'F5F5F7',hdr:'4A4A4F',
+    success:'1F8A3A',successBg:'E8F5EC',warn:'B25000',warnBg:'FFF4E6',
+    danger:'C42828',dangerBg:'FDECEC',
+    wb:'6B1FA8',wbBg:'FAF4FE',wbLight:'EEE0FA',
+    oz:'0051D4',ozBg:'F0F6FF',ozLight:'D6E8FF',
+  };
+  let r=1;
+  const gap=(n=1)=>{r+=n;};
+
+  // ---- HEADER ----
+  ws.getRow(r).height=8; gap();
+  if (v.photoDataUrl) {
+    try {
+      const ext = v.photoDataUrl.startsWith('data:image/png')?'png':'jpeg';
+      const b64 = v.photoDataUrl.split(',')[1];
+      const imgId = wb.addImage({base64:b64,extension:ext});
+      ws.addImage(imgId,{tl:{col:1,row:r-1},br:{col:2,row:r+4},editAs:'oneCell'});
+    } catch(e){}
+  }
+  ws.mergeCells(`C${r}:G${r}`);
+  const tc=ws.getCell(`C${r}`); tc.value='Юнит-экономика маркетплейсов';
+  fn(tc,{bold:true,size:16,color:{argb:hx(C.text)}}); al(tc); ws.getRow(r).height=28; gap();
+  ws.mergeCells(`C${r}:G${r}`);
+  const sc=ws.getCell(`C${r}`); sc.value=v.skuName||'SKU';
+  fn(sc,{bold:true,size:13,color:{argb:hx(C.text)}}); al(sc); ws.getRow(r).height=22; gap();
+  ws.mergeCells(`C${r}:G${r}`);
+  const dc=ws.getCell(`C${r}`);
+  const months=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  const dd=new Date(); dc.value=`Дата расчёта: ${dd.getDate()} ${months[dd.getMonth()]} ${dd.getFullYear()}`;
+  fn(dc,{size:11,color:{argb:hx(C.muted)}}); al(dc); ws.getRow(r).height=18; gap(2);
+
+  // helpers
+  function secHdr(title,f='B',t='G') {
+    ws.mergeCells(`${f}${r}:${t}${r}`);
+    const c=ws.getCell(`${f}${r}`); c.value=title;
+    fl(c,C.hdr); fn(c,{bold:true,size:10,color:{argb:hx(C.white)}});
+    c.alignment={horizontal:'left',vertical:'middle',indent:1};
+    ws.getRow(r).height=22; gap();
+  }
+  function inRow(label,value,fmt=null) {
+    ws.getRow(r).height=18;
+    const lc=ws.getCell(`B${r}`); lc.value=label; fn(lc,{size:11,color:{argb:hx(C.muted)}}); al(lc);
+    const vc=ws.getCell(`C${r}`); vc.value=value; fn(vc,{size:11}); al(vc,'right');
+    if(fmt) nf(vc,fmt); gap();
+  }
+  function resRow(label,value,pct=null,big=false,bg=null,accentColor=null) {
+    const bgc=bg||C.rowAlt; ws.getRow(r).height=big?26:20;
+    const lc=ws.getCell(`B${r}`); lc.value=label; fl(lc,bgc);
+    fn(lc,{size:big?12:11,bold:true,color:{argb:hx(C.text)}}); al(lc);
+    const vc=ws.getCell(`C${r}`); vc.value=value; fl(vc,bgc);
+    fn(vc,{size:big?15:12,bold:true,color:{argb:hx(accentColor||C.text)}}); al(vc,'right'); nf(vc,'#,##0');
+    if(pct!==null){
+      const pc=ws.getCell(`D${r}`); pc.value=pct; fl(pc,bgc);
+      fn(pc,{size:10,color:{argb:hx(C.muted)}}); al(pc,'right'); nf(pc,'0.0%');
+    }
+    gap();
+  }
+
+  // ---- BLOCK 02 ----
+  secHdr('02 · Закупка и ценообразование');
+  inRow(`Invoice (${v.currency})`,v.invoice);
+  if(v.currency!=='RUB') inRow(v.currency==='USD'?'Курс USD, ₽':'Курс RMB, ₽',v.rate);
+  inRow('КЛ (коэфф. логистики)',v.kl);
+  inRow('MUP (наценка ×)',v.mup);
+  inRow('НДС, %',v.nds/100,'0%');
+  inRow('ASP-дисконт, %',v.aspDisc/100,'0%');
+  gap();
+  resRow('COGS / ед., ₽',Math.round(v.cogs));
+  resRow('МРЦ (с НДС), ₽',Math.round(v.mrts),null,false,C.soft,C.accent);
+  resRow('ASP (без НДС), ₽',Math.round(v.asp));
+  gap();
+
+  // ---- BLOCK 03 ----
+  secHdr('03 · Прогноз и инвестированный капитал');
+  inRow('Продажи, шт./год',v.sales);
+  inRow('Средний остаток, шт.',v.avgStock);
+  inRow('Дебиторка, ₽',v.debit);
+  inRow('Кредиторка, ₽',v.credit);
+  gap();
+  resRow('ТЗ (запасы), ₽',Math.round(v.tz));
+  resRow('Inv. Capital, ₽',Math.round(v.ic),null,false,C.soft,C.accent);
+  resRow('Выручка без НДС, ₽',Math.round(v.rev));
+  gap();
+
+  // ---- BLOCK 04: Channels ----
+  ws.mergeCells(`B${r}:D${r}`); const wbH=ws.getCell(`B${r}`); wbH.value='WILDBERRIES';
+  fl(wbH,C.wb); fn(wbH,{bold:true,size:11,color:{argb:hx(C.white)}}); al(wbH,'center');
+  ws.mergeCells(`F${r}:G${r}`); const ozH=ws.getCell(`F${r}`); ozH.value='OZON';
+  fl(ozH,C.oz); fn(ozH,{bold:true,size:11,color:{argb:hx(C.white)}}); al(ozH,'center');
+  ws.getRow(r).height=22; gap();
+
+  function chRow(label,wbVal,ozVal,bold=false,fmt=null) {
+    const wbBg=bold?C.wbLight:C.wbBg, ozBg=bold?C.ozLight:C.ozBg;
+    ws.getRow(r).height=bold?22:18;
+    const wbL=ws.getCell(`B${r}`); wbL.value=label; fl(wbL,wbBg);
+    fn(wbL,{size:bold?12:11,bold,color:{argb:hx(bold?C.text:C.muted)}}); al(wbL);
+    const wbV=ws.getCell(`C${r}`); wbV.value=wbVal; fl(wbV,wbBg);
+    fn(wbV,{size:bold?13:11,bold,color:{argb:hx(bold?C.wb:C.text)}}); al(wbV,'right');
+    const autoFmt=fmt||(typeof wbVal==='number'&&wbVal<2?'0.0%':'#,##0');
+    nf(wbV,autoFmt);
+    const ozL=ws.getCell(`F${r}`); ozL.value=label; fl(ozL,ozBg);
+    fn(ozL,{size:bold?12:11,bold,color:{argb:hx(bold?C.text:C.muted)}}); al(ozL);
+    const ozV=ws.getCell(`G${r}`); ozV.value=ozVal; fl(ozV,ozBg);
+    fn(ozV,{size:bold?13:11,bold,color:{argb:hx(bold?C.oz:C.text)}}); al(ozV,'right');
+    nf(ozV,fmt||(typeof ozVal==='number'&&ozVal<2?'0.0%':'#,##0'));
+    gap();
+  }
+  chRow('Комиссия МП, %',v.wb_com/100,v.oz_com/100);
+  chRow('СПП, %',v.wb_spp/100,v.oz_spp/100);
+  chRow('Кошелёк / Карта, %',v.wb_wallet/100,v.oz_card/100);
+  chRow('Логистика, %',v.wb_log/100,v.oz_log/100);
+  chRow('Реклама, %',v.wb_adv/100,v.oz_adv/100);
+  gap();
+  chRow('Цена кабинета, ₽',Math.round(v.wb_cab),Math.round(v.oz_cab),false,'#,##0');
+  chRow('Цена клиенту, ₽',Math.round(v.wb_cust),Math.round(v.oz_cust),false,'#,##0');
+  chRow('Расходы МП, ₽',Math.round(v.wb_exp),Math.round(v.oz_exp),false,'#,##0');
+  chRow('Ком. маржа, ₽',Math.round(v.wb_marg),Math.round(v.oz_marg),true,'#,##0');
+  chRow('Ком. маржа, %',v.wb_margPct,v.oz_margPct,true,'0.0%');
+  gap();
+
+  // ---- BLOCK 05: Cascade ----
+  secHdr('05 · Каскад юнит-экономики');
+  const cascade=[
+    {label:'Выручка без НДС',val:v.rev,pct:1.0,bold:true,bg:C.soft},
+    {label:'− COGS (себестоимость)',val:v.cogsTot,pct:v.cogsTot/v.rev,bold:false},
+    {label:'= Фронт-маржа (FM)',val:v.fm,pct:v.fmPct,bold:true,bg:C.soft},
+    {label:'− OPEX (39%)',val:v.opex,pct:0.39,bold:false},
+    {label:'= EBIT',val:v.ebit,pct:v.ebit/v.rev,bold:true,bg:C.soft},
+    {label:'− Налог на прибыль (25%)',val:v.tax,pct:v.tax/v.rev,bold:false},
+    {label:'= NOPAT',val:v.nopat,pct:v.nopat/v.rev,bold:true,bg:C.soft,accent:true},
   ];
-  const ws2 = XLSX.utils.aoa_to_sheet(res);
-  ws2['!cols'] = [{wch:35},{wch:20},{wch:15}];
-  XLSX.utils.book_append_sheet(wb, ws2, 'Результаты');
+  for(const cd of cascade){
+    ws.getRow(r).height=cd.bold?24:18;
+    const bg=cd.bg||'F8F8F8';
+    const lc=ws.getCell(`B${r}`); lc.value=cd.label; fl(lc,bg);
+    fn(lc,{size:cd.bold?12:11,bold:cd.bold,color:{argb:hx(C.text)}}); al(lc);
+    const vc=ws.getCell(`C${r}`); vc.value=Math.round(cd.val); fl(vc,bg);
+    fn(vc,{size:cd.bold?14:11,bold:cd.bold,color:{argb:hx(cd.accent?C.accent:C.text)}}); al(vc,'right'); nf(vc,'#,##0');
+    const pc=ws.getCell(`D${r}`); pc.value=cd.pct; fl(pc,bg);
+    fn(pc,{size:10,color:{argb:hx(C.muted)}}); al(pc,'right'); nf(pc,'0.0%');
+    gap();
+  }
+  gap();
 
-  const date = new Date();
-  const ds = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-  const name = v.skuName ? v.skuName.replace(/[/\\?%*:|"<>]/g,'').trim() : 'SKU';
-  XLSX.writeFile(wb, `Расчёт_${name}_${ds}.xlsx`);
+  // KPI cards
+  const nopatLvl=v.nopat>0?0:2;
+  ws.mergeCells(`B${r}:C${r}`);
+  const nCard=ws.getCell(`B${r}`); nCard.value=Math.round(v.nopat);
+  fl(nCard,[C.successBg,C.warnBg,C.dangerBg][nopatLvl]);
+  fn(nCard,{bold:true,size:16,color:{argb:hx([C.success,C.warn,C.danger][nopatLvl])}}); al(nCard,'center');
+  nf(nCard,'#,##0 ₽'); ws.getRow(r).height=36;
+  const nLbl=ws.getCell(`D${r}`); nLbl.value='NOPAT';
+  fn(nLbl,{size:10,color:{argb:hx(C.muted)}}); al(nLbl,'left');
+
+  const roicLvl=v.roic>=1?0:v.roic>=0.5?1:2;
+  ws.mergeCells(`F${r}:G${r}`);
+  const rCard=ws.getCell(`F${r}`); rCard.value=v.roic;
+  fl(rCard,[C.successBg,C.warnBg,C.dangerBg][roicLvl]);
+  fn(rCard,{bold:true,size:16,color:{argb:hx([C.success,C.warn,C.danger][roicLvl])}}); al(rCard,'center');
+  nf(rCard,'0.0%'); gap(2);
+
+  // ---- BLOCK 06: Gates ----
+  secHdr('06 · Dashboard Go / No-Go');
+  // table header
+  ws.getRow(r).height=18;
+  [['B','Gate'],['C','Значение'],['D','Статус']].forEach(([col,h])=>{
+    const c=ws.getCell(`${col}${r}`); c.value=h; fl(c,C.hdr);
+    fn(c,{bold:true,size:10,color:{argb:hx(C.white)}}); al(c,'center');
+  });
+  ws.mergeCells(`E${r}:G${r}`);
+  const rh=ws.getCell(`E${r}`); rh.value='Референс (GO · Пересмотр · Стоп)'; fl(rh,C.hdr);
+  fn(rh,{bold:true,size:10,color:{argb:hx(C.white)}}); al(rh,'left'); rh.alignment.indent=1;
+  gap();
+
+  const minMarg=Math.min(v.wb_margPct,v.oz_margPct);
+  const gates=[
+    {name:'G1 · FM%',val:v.fmPct,fmt:'0.0%',lvl:v.fmPct>=0.60?0:v.fmPct>=0.55?1:2,
+     ref:'≥ 60% GO  ·  55–60% Пересмотр  ·  < 55% Стоп'},
+    {name:'G2 · Ком. маржа',val:minMarg,fmt:'0.0%',lvl:minMarg>=0.42?0:minMarg>=0.35?1:2,
+     ref:'≥ 42% GO  ·  35–42% Пересмотр  ·  < 35% Стоп'},
+    {name:'G3 · EBIT',val:v.ebit,fmt:'#,##0',lvl:v.ebit>0?0:2,
+     ref:'> 0 ₽ GO  ·  ≤ 0 ₽ Стоп'},
+    {name:'G4 · ROIC',val:v.roic,fmt:'0.0%',lvl:v.roic>=1?0:v.roic>=0.5?1:2,
+     ref:'≥ 100% GO  ·  50–100% Пересмотр  ·  < 50% Стоп'},
+  ];
+  const gBg=[C.successBg,C.warnBg,C.dangerBg];
+  const gFg=[C.success,C.warn,C.danger];
+  const gTxt=['✅ GO','⚠ Пересмотр','⛔ Стоп'];
+
+  for(const g of gates){
+    ws.getRow(r).height=24;
+    const bg=gBg[g.lvl],fg=gFg[g.lvl];
+    const nc=ws.getCell(`B${r}`); nc.value=g.name; fl(nc,bg); fn(nc,{bold:true,size:11,color:{argb:hx(fg)}}); al(nc);
+    const vc=ws.getCell(`C${r}`); vc.value=g.val; fl(vc,bg); fn(vc,{bold:true,size:14,color:{argb:hx(fg)}}); al(vc,'right'); nf(vc,g.fmt);
+    const stc=ws.getCell(`D${r}`); stc.value=gTxt[g.lvl]; fl(stc,bg); fn(stc,{bold:true,size:11,color:{argb:hx(fg)}}); al(stc,'center');
+    ws.mergeCells(`E${r}:G${r}`);
+    const rc=ws.getCell(`E${r}`); rc.value=g.ref; fl(rc,bg); fn(rc,{size:9,italic:true,color:{argb:hx(fg)}}); al(rc,'left'); rc.alignment.indent=1;
+    gap();
+  }
+  gap();
+
+  // Verdict
+  const worst=Math.max(...gates.map(g=>g.lvl));
+  const vTxt=worst===0?'✅ GO — запускаем':worst===1?'⚠ Пересмотр — уточните параметры':'⛔ Стоп — пересматриваем';
+  ws.mergeCells(`B${r}:G${r}`);
+  const vCell=ws.getCell(`B${r}`); vCell.value=vTxt;
+  fl(vCell,gBg[worst]); fn(vCell,{bold:true,size:18,color:{argb:hx(gFg[worst])}}); al(vCell,'center');
+  ws.getRow(r).height=44;
+
+  // Save
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const ds=new Date().toISOString().slice(0,10);
+  const nm=(v.skuName||'SKU').replace(/[/\\?%*:|"<>]/g,'').trim();
+  a.href=url; a.download=`Расчёт_${nm}_${ds}.xlsx`; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Init
