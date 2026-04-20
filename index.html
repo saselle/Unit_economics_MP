@@ -964,22 +964,28 @@ async function exportExcel() {
   }
   gap();
 
-  // KPI cards
-  const nopatLvl=v.nopat>0?0:2;
+  // KPI cards — NOPAT (B:C value, D label) | ROIC (F label, G value)
+  const nopatLvl = v.nopat>0?0:2;
+  const roicLvl  = v.roic>=1?0:v.roic>=0.5?1:2;
+  ws.getRow(r).height = 36;
+  // NOPAT value
   ws.mergeCells(`B${r}:C${r}`);
   const nCard=ws.getCell(`B${r}`); nCard.value=Math.round(v.nopat);
   fl(nCard,[C.successBg,C.warnBg,C.dangerBg][nopatLvl]);
-  fn(nCard,{bold:true,size:16,color:{argb:hx([C.success,C.warn,C.danger][nopatLvl])}}); al(nCard,'center');
-  nf(nCard,'#,##0 ₽'); ws.getRow(r).height=36;
+  fn(nCard,{bold:true,size:16,color:{argb:hx([C.success,C.warn,C.danger][nopatLvl])}}); al(nCard,'center'); nf(nCard,'#,##0 ₽');
+  // NOPAT label
   const nLbl=ws.getCell(`D${r}`); nLbl.value='NOPAT';
-  fn(nLbl,{size:10,color:{argb:hx(C.muted)}}); al(nLbl,'left');
-
-  const roicLvl=v.roic>=1?0:v.roic>=0.5?1:2;
-  ws.mergeCells(`F${r}:G${r}`);
-  const rCard=ws.getCell(`F${r}`); rCard.value=v.roic;
+  fl(nLbl,[C.successBg,C.warnBg,C.dangerBg][nopatLvl]);
+  fn(nLbl,{size:11,bold:true,color:{argb:hx(C.muted)}}); al(nLbl,'left');
+  // ROIC label
+  const rLbl=ws.getCell(`F${r}`); rLbl.value='ROIC';
+  fl(rLbl,[C.successBg,C.warnBg,C.dangerBg][roicLvl]);
+  fn(rLbl,{size:11,bold:true,color:{argb:hx(C.muted)}}); al(rLbl,'right');
+  // ROIC value
+  const rCard=ws.getCell(`G${r}`); rCard.value=v.roic;
   fl(rCard,[C.successBg,C.warnBg,C.dangerBg][roicLvl]);
-  fn(rCard,{bold:true,size:16,color:{argb:hx([C.success,C.warn,C.danger][roicLvl])}}); al(rCard,'center');
-  nf(rCard,'0.0%'); gap(2);
+  fn(rCard,{bold:true,size:16,color:{argb:hx([C.success,C.warn,C.danger][roicLvl])}}); al(rCard,'center'); nf(rCard,'0.0%');
+  gap(2);
 
   // ---- BLOCK 07: Gates ----
   secHdr('07 · Dashboard Go / No-Go');
