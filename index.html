@@ -122,6 +122,18 @@ textarea:focus{border-color:var(--accent)}
 .niche-stat-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 10px;border-radius:6px;font-size:12px}
 .niche-stat-row .ns-label{color:var(--muted)}
 .niche-stat-row .ns-val{font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
+.comp-links-wrap{display:flex;flex-direction:column;gap:0;margin-top:8px}
+.comp-link-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.06)}
+.comp-link-row:last-child{border-bottom:none}
+.comp-link-chip{flex:1;min-width:0;font-size:12px;font-weight:500;text-decoration:none;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wb-block .comp-link-chip{color:#6B1FA8}
+.oz-block .comp-link-chip{color:#0051D4}
+.comp-price-group{display:flex;align-items:center;gap:3px;flex-shrink:0}
+.comp-price-label{font-size:10px;color:var(--muted);white-space:nowrap}
+.comp-price-input{width:74px;padding:3px 6px;font-size:12px;border:1px solid #D2D2D7;border-radius:6px;text-align:right;font-variant-numeric:tabular-nums;background:#fff;color:var(--text);outline:none;transition:border-color .15s}
+.comp-price-input:focus{border-color:var(--accent)}
+.wb-block .comp-price-input:focus{border-color:#8B35C8}
+.oz-block .comp-price-input:focus{border-color:#005BFF}
 
 @media print{
   body{background:#fff;min-width:auto}
@@ -305,58 +317,74 @@ textarea:focus{border-color:var(--accent)}
       <!-- WB Niche -->
       <div class="channel-block wb-block">
         <div class="channel-title"><span class="ch-logo"></span>Wildberries</div>
-        <div class="grid-2">
+        <div class="field">
+          <label>Объём ниши, ₽/мес</label>
+          <input type="number" id="wb_niche_vol" placeholder="0" min="0" step="1000" oninput="recalc()">
+        </div>
+        <div class="grid-2" style="margin-top:8px">
           <div class="field">
-            <label>Объём ниши, ₽/мес</label>
-            <input type="number" id="wb_niche_vol" placeholder="0" min="0" step="1000" oninput="recalc()">
+            <label>Ср. цена ниши до СПП, ₽</label>
+            <input type="number" id="wb_avg_before" placeholder="авто из ссылок" min="0" step="1" oninput="recalc()">
           </div>
           <div class="field">
-            <label>Средняя цена ниши, ₽</label>
-            <input type="number" id="wb_niche_price" placeholder="0" min="0" step="1" oninput="recalc()">
+            <label>Ср. цена ниши после СПП, ₽</label>
+            <input type="number" id="wb_avg_after" placeholder="авто из ссылок" min="0" step="1" oninput="recalc()">
           </div>
         </div>
         <div class="field" style="margin-top:10px">
           <label>Ссылки на конкурентов (по одной на строку)</label>
           <textarea id="wb_links" placeholder="https://www.wildberries.ru/catalog/..." rows="3" oninput="renderLinks('wb')"></textarea>
         </div>
-        <div class="niche-links" id="wb_links_rendered"></div>
+        <div class="comp-links-wrap" id="wb_links_rendered"></div>
         <div class="niche-stat" id="wb_niche_stat" style="margin-top:10px;display:none">
           <div class="niche-stat-row" style="background:rgba(107,31,168,.06)">
             <span class="ns-label">Доля рынка (WB)</span>
             <span class="ns-val" id="r_wb_share">—</span>
           </div>
           <div class="niche-stat-row" style="background:rgba(107,31,168,.06)">
-            <span class="ns-label">Наша цена vs ср. ниши</span>
-            <span class="ns-val" id="r_wb_vs_avg">—</span>
+            <span class="ns-label">МРЦ vs ср. до СПП</span>
+            <span class="ns-val" id="r_wb_vs_before">—</span>
+          </div>
+          <div class="niche-stat-row" style="background:rgba(107,31,168,.06)">
+            <span class="ns-label">Цена клиенту vs ср. после СПП</span>
+            <span class="ns-val" id="r_wb_vs_after">—</span>
           </div>
         </div>
       </div>
       <!-- OZON Niche -->
       <div class="channel-block oz-block">
         <div class="channel-title"><span class="ch-logo"></span>OZON</div>
-        <div class="grid-2">
+        <div class="field">
+          <label>Объём ниши, ₽/мес</label>
+          <input type="number" id="oz_niche_vol" placeholder="0" min="0" step="1000" oninput="recalc()">
+        </div>
+        <div class="grid-2" style="margin-top:8px">
           <div class="field">
-            <label>Объём ниши, ₽/мес</label>
-            <input type="number" id="oz_niche_vol" placeholder="0" min="0" step="1000" oninput="recalc()">
+            <label>Ср. цена ниши до СПП, ₽</label>
+            <input type="number" id="oz_avg_before" placeholder="авто из ссылок" min="0" step="1" oninput="recalc()">
           </div>
           <div class="field">
-            <label>Средняя цена ниши, ₽</label>
-            <input type="number" id="oz_niche_price" placeholder="0" min="0" step="1" oninput="recalc()">
+            <label>Ср. цена ниши после СПП, ₽</label>
+            <input type="number" id="oz_avg_after" placeholder="авто из ссылок" min="0" step="1" oninput="recalc()">
           </div>
         </div>
         <div class="field" style="margin-top:10px">
           <label>Ссылки на конкурентов (по одной на строку)</label>
           <textarea id="oz_links" placeholder="https://www.ozon.ru/product/..." rows="3" oninput="renderLinks('oz')"></textarea>
         </div>
-        <div class="niche-links" id="oz_links_rendered"></div>
+        <div class="comp-links-wrap" id="oz_links_rendered"></div>
         <div class="niche-stat" id="oz_niche_stat" style="margin-top:10px;display:none">
           <div class="niche-stat-row" style="background:rgba(0,91,255,.05)">
             <span class="ns-label">Доля рынка (OZON)</span>
             <span class="ns-val" id="r_oz_share">—</span>
           </div>
           <div class="niche-stat-row" style="background:rgba(0,91,255,.05)">
-            <span class="ns-label">Наша цена vs ср. ниши</span>
-            <span class="ns-val" id="r_oz_vs_avg">—</span>
+            <span class="ns-label">МРЦ vs ср. до СПП</span>
+            <span class="ns-val" id="r_oz_vs_before">—</span>
+          </div>
+          <div class="niche-stat-row" style="background:rgba(0,91,255,.05)">
+            <span class="ns-label">Цена клиенту vs ср. после СПП</span>
+            <span class="ns-val" id="r_oz_vs_after">—</span>
           </div>
         </div>
       </div>
@@ -508,6 +536,7 @@ function setGate(id, value, displayVal, level) {
 let _vals = {};
 let _currency = 'CNY';
 let _photoDataUrl = '';
+let _compPrices = {wb:{}, oz:{}};
 
 function setCurrency(cur) {
   _currency = cur;
@@ -589,25 +618,35 @@ function recalc() {
   $('r_oz_margin').textContent = fmtRub(oz_marg) + ' / ' + fmtPct(oz_margPct);
 
   // Block 05 - Niche analysis
-  const wb_niche_vol = num('wb_niche_vol'), wb_niche_price = num('wb_niche_price');
-  const oz_niche_vol = num('oz_niche_vol'), oz_niche_price = num('oz_niche_price');
-  if (wb_niche_vol > 0 || wb_niche_price > 0) {
+  function autoAvg(ch, type) {
+    const vals = Object.values(_compPrices[ch]||{}).map(p=>p[type]).filter(v=>v>0);
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+  }
+  function showDiff(elId, our, avg) {
+    if (!avg) { $(elId).textContent = '—'; $(elId).style.color = ''; return; }
+    const diff = (our - avg) / avg;
+    $(elId).textContent = (diff >= 0 ? '+' : '') + fmtPct(diff);
+    $(elId).style.color = diff <= 0 ? 'var(--success)' : 'var(--danger)';
+  }
+  const wb_niche_vol = num('wb_niche_vol');
+  const wb_avg_before = num('wb_avg_before') || autoAvg('wb','before');
+  const wb_avg_after  = num('wb_avg_after')  || autoAvg('wb','after');
+  const oz_niche_vol = num('oz_niche_vol');
+  const oz_avg_before = num('oz_avg_before') || autoAvg('oz','before');
+  const oz_avg_after  = num('oz_avg_after')  || autoAvg('oz','after');
+  const wb_has = wb_niche_vol>0 || wb_avg_before>0 || wb_avg_after>0 || Object.keys(_compPrices.wb).length>0;
+  const oz_has = oz_niche_vol>0 || oz_avg_before>0 || oz_avg_after>0 || Object.keys(_compPrices.oz).length>0;
+  if (wb_has) {
     $('wb_niche_stat').style.display = 'flex';
     $('r_wb_share').textContent = wb_niche_vol > 0 ? fmtPct(rev / (wb_niche_vol * 12)) : '—';
-    if (wb_niche_price > 0) {
-      const diff = (wb_mrts_eff - wb_niche_price) / wb_niche_price;
-      $('r_wb_vs_avg').textContent = (diff >= 0 ? '+' : '') + fmtPct(diff);
-      $('r_wb_vs_avg').style.color = diff <= 0 ? 'var(--success)' : 'var(--danger)';
-    } else { $('r_wb_vs_avg').textContent = '—'; }
+    showDiff('r_wb_vs_before', wb_mrts_eff, wb_avg_before);
+    showDiff('r_wb_vs_after', wb_cust, wb_avg_after);
   } else { $('wb_niche_stat').style.display = 'none'; }
-  if (oz_niche_vol > 0 || oz_niche_price > 0) {
+  if (oz_has) {
     $('oz_niche_stat').style.display = 'flex';
     $('r_oz_share').textContent = oz_niche_vol > 0 ? fmtPct(rev / (oz_niche_vol * 12)) : '—';
-    if (oz_niche_price > 0) {
-      const diff = (oz_mrts_eff - oz_niche_price) / oz_niche_price;
-      $('r_oz_vs_avg').textContent = (diff >= 0 ? '+' : '') + fmtPct(diff);
-      $('r_oz_vs_avg').style.color = diff <= 0 ? 'var(--success)' : 'var(--danger)';
-    } else { $('r_oz_vs_avg').textContent = '—'; }
+    showDiff('r_oz_vs_before', oz_mrts_eff, oz_avg_before);
+    showDiff('r_oz_vs_after', oz_cust, oz_avg_after);
   } else { $('oz_niche_stat').style.display = 'none'; }
 
   // Block 05 - Cascade
@@ -908,20 +947,43 @@ async function exportExcel() {
   URL.revokeObjectURL(url);
 }
 
+function setCompPrice(ch, idx, type, val) {
+  if (!_compPrices[ch]) _compPrices[ch] = {};
+  if (!_compPrices[ch][idx]) _compPrices[ch][idx] = {before:0, after:0};
+  _compPrices[ch][idx][type] = parseFloat(val) || 0;
+  recalc();
+}
+
 function renderLinks(ch) {
   const raw = $(ch + '_links').value;
   const container = $(ch + '_links_rendered');
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-  if (!lines.length) { container.innerHTML = ''; return; }
-  container.innerHTML = lines.map(l => {
-    try {
-      const url = new URL(l);
-      const label = url.hostname.replace('www.','') + (url.pathname.length > 1 ? '/…' : '');
-      return `<a href="${l}" target="_blank" rel="noopener" class="niche-link">↗ ${label}</a>`;
-    } catch {
-      return `<span class="niche-link" style="cursor:default">${l}</span>`;
-    }
+  if (!lines.length) { container.innerHTML = ''; _compPrices[ch] = {}; recalc(); return; }
+  const prev = _compPrices[ch] || {};
+  _compPrices[ch] = {};
+  container.innerHTML = lines.map((l, i) => {
+    const pb = (prev[i] && prev[i].before > 0) ? prev[i].before : '';
+    const pa = (prev[i] && prev[i].after > 0)  ? prev[i].after  : '';
+    _compPrices[ch][i] = { before: Number(pb)||0, after: Number(pa)||0 };
+    let label = l;
+    try { const u = new URL(l); label = '↗\u00A0' + u.hostname.replace('www.','') + (u.pathname.length > 1 ? '/…' : ''); } catch { label = l; }
+    const isUrl = /^https?:\/\//.test(l);
+    const chip = isUrl
+      ? `<a href="${l}" target="_blank" rel="noopener" class="comp-link-chip">${label}</a>`
+      : `<span class="comp-link-chip">${label}</span>`;
+    return `<div class="comp-link-row">
+      ${chip}
+      <div class="comp-price-group">
+        <span class="comp-price-label">до&nbsp;СПП</span>
+        <input class="comp-price-input" type="number" value="${pb}" placeholder="₽" oninput="setCompPrice('${ch}',${i},'before',this.value)">
+      </div>
+      <div class="comp-price-group">
+        <span class="comp-price-label">после&nbsp;СПП</span>
+        <input class="comp-price-input" type="number" value="${pa}" placeholder="₽" oninput="setCompPrice('${ch}',${i},'after',this.value)">
+      </div>
+    </div>`;
   }).join('');
+  recalc();
 }
 
 // Init
