@@ -754,23 +754,28 @@ async function exportExcel() {
   const gap=(n=1)=>{r+=n;};
 
   // ---- HEADER ----
-  ws.getRow(r).height=8; gap();
-  if (v.photoDataUrl) {
+  const _hasPhoto = !!_photoDataUrl;
+  // Photo occupies col B-C (indices 1-3), rows 1-7 (0-based); text starts at col D if photo present
+  const _txtCol = _hasPhoto ? 'D' : 'C';
+  ws.getRow(r).height = _hasPhoto ? 110 : 8;
+  if (_hasPhoto) {
     try {
-      const ext = v.photoDataUrl.startsWith('data:image/png')?'png':'jpeg';
-      const b64 = v.photoDataUrl.split(',')[1];
-      const imgId = wb.addImage({base64:b64,extension:ext});
-      ws.addImage(imgId,{tl:{col:1,row:r-1},br:{col:2,row:r+4},editAs:'oneCell'});
+      const ext = _photoDataUrl.startsWith('data:image/png')?'png':'jpeg';
+      const b64 = _photoDataUrl.split(',')[1];
+      const imgId = wb.addImage({base64:b64, extension:ext});
+      // span columns B-C (0-based 1-3), rows 1-6 (0-based), leaving margin
+      ws.addImage(imgId,{tl:{col:1,row:0},br:{col:3,row:5},editAs:'twoCell'});
     } catch(e){}
   }
-  ws.mergeCells(`C${r}:G${r}`);
-  const tc=ws.getCell(`C${r}`); tc.value='Юнит-экономика маркетплейсов';
+  gap();
+  ws.mergeCells(`${_txtCol}${r}:G${r}`);
+  const tc=ws.getCell(`${_txtCol}${r}`); tc.value='Юнит-экономика маркетплейсов';
   fn(tc,{bold:true,size:16,color:{argb:hx(C.text)}}); al(tc); ws.getRow(r).height=28; gap();
-  ws.mergeCells(`C${r}:G${r}`);
-  const sc=ws.getCell(`C${r}`); sc.value=v.skuName||'SKU';
+  ws.mergeCells(`${_txtCol}${r}:G${r}`);
+  const sc=ws.getCell(`${_txtCol}${r}`); sc.value=v.skuName||'SKU';
   fn(sc,{bold:true,size:13,color:{argb:hx(C.text)}}); al(sc); ws.getRow(r).height=22; gap();
-  ws.mergeCells(`C${r}:G${r}`);
-  const dc=ws.getCell(`C${r}`);
+  ws.mergeCells(`${_txtCol}${r}:G${r}`);
+  const dc=ws.getCell(`${_txtCol}${r}`);
   const months=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
   const dd=new Date(); dc.value=`Дата расчёта: ${dd.getDate()} ${months[dd.getMonth()]} ${dd.getFullYear()}`;
   fn(dc,{size:11,color:{argb:hx(C.muted)}}); al(dc); ws.getRow(r).height=18; gap(2);
