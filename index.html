@@ -630,11 +630,17 @@ function recalc() {
     $(elId).style.color = diff <= 0 ? 'var(--success)' : 'var(--danger)';
   }
   const wb_niche_vol = num('wb_niche_vol');
-  const wb_avg_before = num('wb_avg_before') || autoAvg('wb','before');
-  const wb_avg_after  = num('wb_avg_after')  || autoAvg('wb','after');
+  const _wb_auto_before = autoAvg('wb','before'), _wb_auto_after = autoAvg('wb','after');
+  const _oz_auto_before = autoAvg('oz','before'), _oz_auto_after = autoAvg('oz','after');
+  $('wb_avg_before').placeholder = _wb_auto_before > 0 ? `авто: ${Math.round(_wb_auto_before).toLocaleString('ru')} ₽` : 'авто из ссылок';
+  $('wb_avg_after').placeholder  = _wb_auto_after  > 0 ? `авто: ${Math.round(_wb_auto_after).toLocaleString('ru')} ₽`  : 'авто из ссылок';
+  $('oz_avg_before').placeholder = _oz_auto_before > 0 ? `авто: ${Math.round(_oz_auto_before).toLocaleString('ru')} ₽` : 'авто из ссылок';
+  $('oz_avg_after').placeholder  = _oz_auto_after  > 0 ? `авто: ${Math.round(_oz_auto_after).toLocaleString('ru')} ₽`  : 'авто из ссылок';
+  const wb_avg_before = num('wb_avg_before') || _wb_auto_before;
+  const wb_avg_after  = num('wb_avg_after')  || _wb_auto_after;
   const oz_niche_vol = num('oz_niche_vol');
-  const oz_avg_before = num('oz_avg_before') || autoAvg('oz','before');
-  const oz_avg_after  = num('oz_avg_after')  || autoAvg('oz','after');
+  const oz_avg_before = num('oz_avg_before') || _oz_auto_before;
+  const oz_avg_after  = num('oz_avg_after')  || _oz_auto_after;
   const wb_has = wb_niche_vol>0 || wb_avg_before>0 || wb_avg_after>0 || Object.keys(_compPrices.wb).length>0;
   const oz_has = oz_niche_vol>0 || oz_avg_before>0 || oz_avg_after>0 || Object.keys(_compPrices.oz).length>0;
   if (wb_has) {
