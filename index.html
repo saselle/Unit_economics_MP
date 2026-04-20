@@ -141,7 +141,11 @@ textarea:focus{border-color:var(--accent)}
   .page{max-width:100%;padding:10mm 15mm;font-size:11pt}
   .buttons{display:none}
   .block{break-inside:avoid;border:1px solid #E5E5EA;padding:12px;margin-bottom:10px}
-  input{border:none!important;padding:0!important;background:transparent!important;font-size:inherit}
+  input,textarea{border:none!important;padding:0!important;background:transparent!important;font-size:inherit;resize:none}
+  textarea{display:none!important}
+  .comp-links-wrap{display:flex!important;flex-direction:column}
+  .comp-link-chip{color:inherit!important;text-decoration:underline}
+  .comp-price-input{display:inline!important;width:auto!important}
   .photo-area .ph-del{display:none!important}
   h1{font-size:16pt}
   @page{size:A4 portrait;margin:15mm}
@@ -703,13 +707,19 @@ function recalc() {
   else { verd.className='verdict fail'; verd.textContent='⛔ Стоп — пересматриваем'; }
 
   // Store for export
+  const _wb_urls = $('wb_links').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  const _oz_urls = $('oz_links').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  const wb_links_data = _wb_urls.map((url,i)=>({url,before:(_compPrices.wb[i]||{}).before||0,after:(_compPrices.wb[i]||{}).after||0}));
+  const oz_links_data = _oz_urls.map((url,i)=>({url,before:(_compPrices.oz[i]||{}).before||0,after:(_compPrices.oz[i]||{}).after||0}));
   _vals = {invoice,rate,kl,mup,nds:nds*100,aspDisc:aspDisc*100,currency:_currency,
     sales,avgStock,debit,credit,
     wb_com:wb_com*100,wb_spp:wb_spp*100,wb_wallet:wb_wallet*100,wb_log:wb_log*100,wb_adv:wb_adv*100,
     oz_com:oz_com*100,oz_spp:oz_spp*100,oz_card:oz_card*100,oz_log:oz_log*100,oz_adv:oz_adv*100,
     cogs,mrts,asp,tz,ic,rev,cogsTot,fm,fmPct,opex,ebit,tax,nopat,roic,
-    wb_cab,wb_cust,wb_exp,wb_marg,wb_margPct,
-    oz_cab,oz_cust,oz_exp,oz_marg,oz_margPct,
+    wb_cab,wb_cust,wb_exp,wb_marg,wb_margPct,wb_mrts_eff,
+    oz_cab,oz_cust,oz_exp,oz_marg,oz_margPct,oz_mrts_eff,
+    wb_niche_vol,wb_avg_before,wb_avg_after,wb_links_data,
+    oz_niche_vol,oz_avg_before,oz_avg_after,oz_links_data,
     skuName:$('skuName').value, photoDataUrl:_photoDataUrl
   };
 }
@@ -854,8 +864,79 @@ async function exportExcel() {
   chRow('Ком. маржа, %',v.wb_margPct,v.oz_margPct,true,'0.0%');
   gap();
 
-  // ---- BLOCK 05: Cascade ----
-  secHdr('05 · Каскад юнит-экономики');
+  // ---- BLOCK 05: Niche & Competitors ----
+  const _hasNiche = v.wb_niche_vol>0||v.wb_avg_before>0||v.wb_avg_after>0||v.wb_links_data.length>0||
+                    v.oz_niche_vol>0||v.oz_avg_before>0||v.oz_avg_after>0||v.oz_links_data.length>0;
+  if (_hasNiche) {
+    secHdr('05 · Анализ ниши и конкуренты');
+    // Channel sub-headers
+    ws.mergeCells(`B${r}:D${r}`); const wbNH=ws.getCell(`B${r}`);
+    wbNH.value='WILDBERRIES'; fl(wbNH,C.wb); fn(wbNH,{bold:true,size:10,color:{argb:hx(C.white)}}); al(wbNH,'center');
+    ws.mergeCells(`F${r}:G${r}`); const ozNH=ws.getCell(`F${r}`);
+    ozNH.value='OZON'; fl(ozNH,C.oz); fn(ozNH,{bold:true,size:10,color:{argb:hx(C.white)}}); al(ozNH,'center');
+    ws.getRow(r).height=20; gap();
+
+    function nichePair(label,wbVal,ozVal,fmt) {
+      if(!wbVal&&!ozVal) return;
+      ws.getRow(r).height=18;
+      const wbL=ws.getCell(`B${r}`); wbL.value=label; fl(wbL,C.wbBg); fn(wbL,{size:11,color:{argb:hx(C.muted)}}); al(wbL);
+      if(wbVal){const wbV=ws.getCell(`C${r}`); wbV.value=wbVal; fl(wbV,C.wbBg); fn(wbV,{size:11}); al(wbV,'right'); if(fmt)nf(wbV,fmt);}
+      const ozL=ws.getCell(`F${r}`); ozL.value=label; fl(ozL,C.ozBg); fn(ozL,{size:11,color:{argb:hx(C.muted)}}); al(ozL);
+      if(ozVal){const ozV=ws.getCell(`G${r}`); ozV.value=ozVal; fl(ozV,C.ozBg); fn(ozV,{size:11}); al(ozV,'right'); if(fmt)nf(ozV,fmt);}
+      gap();
+    }
+    nichePair('Объём ниши, ₽/мес', v.wb_niche_vol||null, v.oz_niche_vol||null, '#,##0');
+    nichePair('Ср. цена до СПП, ₽', v.wb_avg_before||null, v.oz_avg_before||null, '#,##0');
+    nichePair('Ср. цена после СПП, ₽', v.wb_avg_after||null, v.oz_avg_after||null, '#,##0');
+
+    function nicheComp(label,wbOur,wbAvg,ozOur,ozAvg) {
+      if(!wbAvg&&!ozAvg) return;
+      ws.getRow(r).height=20;
+      const wbL=ws.getCell(`B${r}`); wbL.value=label; fl(wbL,C.wbLight); fn(wbL,{size:11,bold:true,color:{argb:hx(C.text)}}); al(wbL);
+      if(wbAvg){const d=(wbOur-wbAvg)/wbAvg; const wbV=ws.getCell(`C${r}`); wbV.value=d; fl(wbV,C.wbLight); fn(wbV,{size:12,bold:true,color:{argb:hx(d<=0?C.success:C.danger)}}); al(wbV,'right'); nf(wbV,'+0.0%;-0.0%');}
+      const ozL=ws.getCell(`F${r}`); ozL.value=label; fl(ozL,C.ozLight); fn(ozL,{size:11,bold:true,color:{argb:hx(C.text)}}); al(ozL);
+      if(ozAvg){const d2=(ozOur-ozAvg)/ozAvg; const ozV=ws.getCell(`G${r}`); ozV.value=d2; fl(ozV,C.ozLight); fn(ozV,{size:12,bold:true,color:{argb:hx(d2<=0?C.success:C.danger)}}); al(ozV,'right'); nf(ozV,'+0.0%;-0.0%');}
+      gap();
+    }
+    nicheComp('МРЦ vs ср. до СПП', v.wb_mrts_eff, v.wb_avg_before, v.oz_mrts_eff, v.oz_avg_before);
+    nicheComp('Цена клиенту vs ср. после СПП', v.wb_cust, v.wb_avg_after, v.oz_cust, v.oz_avg_after);
+
+    // Competitor links
+    const maxL=Math.max(v.wb_links_data.length, v.oz_links_data.length);
+    if (maxL>0) {
+      ws.getRow(r).height=18;
+      ws.mergeCells(`B${r}:D${r}`); const wbCH=ws.getCell(`B${r}`); wbCH.value='Ссылки на конкурентов'; fl(wbCH,'E8D5F5'); fn(wbCH,{bold:true,size:10,color:{argb:hx(C.wb)}}); al(wbCH,'center');
+      ws.mergeCells(`F${r}:G${r}`); const ozCH=ws.getCell(`F${r}`); ozCH.value='Ссылки на конкурентов'; fl(ozCH,'C8DCF8'); fn(ozCH,{bold:true,size:10,color:{argb:hx(C.oz)}}); al(ozCH,'center');
+      gap();
+      for(let i=0;i<maxL;i++){
+        ws.getRow(r).height=20;
+        const wbd=v.wb_links_data[i];
+        if(wbd){
+          const wbLC=ws.getCell(`B${r}`); fl(wbLC,C.wbBg); al(wbLC);
+          const isWbUrl=/^https?:\/\//.test(wbd.url);
+          if(isWbUrl){ let lb=wbd.url; try{const u=new URL(wbd.url);lb=u.hostname.replace('www.','')+'/…';}catch{}
+            wbLC.value={text:lb,hyperlink:wbd.url}; wbLC.font={name:'Calibri',size:10,underline:true,color:{argb:'FF'+C.wb}};
+          } else { wbLC.value=wbd.url; fn(wbLC,{size:10,color:{argb:hx(C.muted)}}); }
+          if(wbd.before>0){const c=ws.getCell(`C${r}`); c.value=wbd.before; fl(c,C.wbBg); fn(c,{size:10,color:{argb:hx(C.muted)}}); al(c,'right'); nf(c,'#,##0 "до СПП"');}
+          if(wbd.after>0){const c=ws.getCell(`D${r}`); c.value=wbd.after; fl(c,C.wbBg); fn(c,{size:10,color:{argb:hx(C.muted)}}); al(c,'right'); nf(c,'#,##0 "п/СПП"');}
+        }
+        const ozd=v.oz_links_data[i];
+        if(ozd){
+          const ozLC=ws.getCell(`F${r}`); fl(ozLC,C.ozBg); al(ozLC);
+          const isOzUrl=/^https?:\/\//.test(ozd.url);
+          if(isOzUrl){ let lb=ozd.url; try{const u=new URL(ozd.url);lb=u.hostname.replace('www.','')+'/…';}catch{}
+            ozLC.value={text:lb,hyperlink:ozd.url}; ozLC.font={name:'Calibri',size:10,underline:true,color:{argb:'FF'+C.oz}};
+          } else { ozLC.value=ozd.url; fn(ozLC,{size:10,color:{argb:hx(C.muted)}}); }
+          if(ozd.before>0||ozd.after>0){const c=ws.getCell(`G${r}`); c.value=`${ozd.before||'—'} / ${ozd.after||'—'}`; fl(c,C.ozBg); fn(c,{size:10,color:{argb:hx(C.muted)}}); al(c,'right');}
+        }
+        gap();
+      }
+    }
+    gap();
+  }
+
+  // ---- BLOCK 06: Cascade ----
+  secHdr('06 · Каскад юнит-экономики');
   const cascade=[
     {label:'Выручка без НДС',val:v.rev,pct:1.0,bold:true,bg:C.soft},
     {label:'− COGS (себестоимость)',val:v.cogsTot,pct:v.cogsTot/v.rev,bold:false},
@@ -895,8 +976,8 @@ async function exportExcel() {
   fn(rCard,{bold:true,size:16,color:{argb:hx([C.success,C.warn,C.danger][roicLvl])}}); al(rCard,'center');
   nf(rCard,'0.0%'); gap(2);
 
-  // ---- BLOCK 06: Gates ----
-  secHdr('06 · Dashboard Go / No-Go');
+  // ---- BLOCK 07: Gates ----
+  secHdr('07 · Dashboard Go / No-Go');
   // table header
   ws.getRow(r).height=18;
   [['B','Gate'],['C','Значение'],['D','Статус']].forEach(([col,h])=>{
