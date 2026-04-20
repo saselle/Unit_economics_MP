@@ -849,6 +849,7 @@ async function exportExcel() {
     fn(wbV,{size:bold?13:11,bold,color:{argb:hx(bold?C.wb:C.text)}}); al(wbV,'right');
     const autoFmt=fmt||(typeof wbVal==='number'&&wbVal<2?'0.0%':'#,##0');
     nf(wbV,autoFmt);
+    fl(ws.getCell(`D${r}`),wbBg); // fill D to match WB header width (B:D)
     const ozL=ws.getCell(`F${r}`); ozL.value=label; fl(ozL,ozBg);
     fn(ozL,{size:bold?12:11,bold,color:{argb:hx(bold?C.text:C.muted)}}); al(ozL);
     const ozV=ws.getCell(`G${r}`); ozV.value=ozVal; fl(ozV,ozBg);
@@ -886,6 +887,7 @@ async function exportExcel() {
       ws.getRow(r).height=18;
       const wbL=ws.getCell(`B${r}`); wbL.value=label; fl(wbL,C.wbBg); fn(wbL,{size:11,color:{argb:hx(C.muted)}}); al(wbL);
       if(wbVal){const wbV=ws.getCell(`C${r}`); wbV.value=wbVal; fl(wbV,C.wbBg); fn(wbV,{size:11}); al(wbV,'right'); if(fmt)nf(wbV,fmt);}
+      fl(ws.getCell(`D${r}`),C.wbBg);
       const ozL=ws.getCell(`F${r}`); ozL.value=label; fl(ozL,C.ozBg); fn(ozL,{size:11,color:{argb:hx(C.muted)}}); al(ozL);
       if(ozVal){const ozV=ws.getCell(`G${r}`); ozV.value=ozVal; fl(ozV,C.ozBg); fn(ozV,{size:11}); al(ozV,'right'); if(fmt)nf(ozV,fmt);}
       gap();
@@ -899,6 +901,7 @@ async function exportExcel() {
       ws.getRow(r).height=20;
       const wbL=ws.getCell(`B${r}`); wbL.value=label; fl(wbL,C.wbLight); fn(wbL,{size:11,bold:true,color:{argb:hx(C.text)}}); al(wbL);
       if(wbAvg){const d=(wbOur-wbAvg)/wbAvg; const wbV=ws.getCell(`C${r}`); wbV.value=d; fl(wbV,C.wbLight); fn(wbV,{size:12,bold:true,color:{argb:hx(d<=0?C.success:C.danger)}}); al(wbV,'right'); nf(wbV,'+0.0%;-0.0%');}
+      fl(ws.getCell(`D${r}`),C.wbLight);
       const ozL=ws.getCell(`F${r}`); ozL.value=label; fl(ozL,C.ozLight); fn(ozL,{size:11,bold:true,color:{argb:hx(C.text)}}); al(ozL);
       if(ozAvg){const d2=(ozOur-ozAvg)/ozAvg; const ozV=ws.getCell(`G${r}`); ozV.value=d2; fl(ozV,C.ozLight); fn(ozV,{size:12,bold:true,color:{argb:hx(d2<=0?C.success:C.danger)}}); al(ozV,'right'); nf(ozV,'+0.0%;-0.0%');}
       gap();
@@ -922,8 +925,10 @@ async function exportExcel() {
           if(isWbUrl){ let lb=wbd.url; try{const u=new URL(wbd.url);lb=u.hostname.replace('www.','')+'/…';}catch{}
             wbLC.value={text:lb,hyperlink:wbd.url}; wbLC.font={name:'Calibri',size:10,underline:true,color:{argb:'FF'+C.wb}};
           } else { wbLC.value=wbd.url; fn(wbLC,{size:10,color:{argb:hx(C.muted)}}); }
-          if(wbd.before>0){const c=ws.getCell(`C${r}`); c.value=wbd.before; fl(c,C.wbBg); fn(c,{size:10,color:{argb:hx(C.muted)}}); al(c,'right'); nf(c,'#,##0 "до СПП"');}
-          if(wbd.after>0){const c=ws.getCell(`D${r}`); c.value=wbd.after; fl(c,C.wbBg); fn(c,{size:10,color:{argb:hx(C.muted)}}); al(c,'right'); nf(c,'#,##0 "п/СПП"');}
+          const wbC=ws.getCell(`C${r}`); fl(wbC,C.wbBg); al(wbC,'right');
+          if(wbd.before>0){wbC.value=wbd.before; fn(wbC,{size:10,color:{argb:hx(C.muted)}}); nf(wbC,'#,##0 "до СПП"');}
+          const wbD=ws.getCell(`D${r}`); fl(wbD,C.wbBg); al(wbD,'right');
+          if(wbd.after>0){wbD.value=wbd.after; fn(wbD,{size:10,color:{argb:hx(C.muted)}}); nf(wbD,'#,##0 "п/СПП"');}
         }
         const ozd=v.oz_links_data[i];
         if(ozd){
