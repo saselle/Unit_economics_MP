@@ -289,7 +289,7 @@ textarea:focus{border-color:var(--accent)}
           <div class="field" style="grid-column:1/-1"><label>Реклама (%)</label><input type="number" id="oz_adv" value="10" min="0" max="100" step="0.1" oninput="recalc()"></div>
         </div>
         <div class="ch-results">
-          <div class="ch-row"><span class="ch-label">Цена кабинета (МРЦ×1.1)</span><span class="ch-val" id="r_oz_cab">—</span></div>
+          <div class="ch-row"><span class="ch-label">Цена кабинета (МРЦ)</span><span class="ch-val" id="r_oz_cab">—</span></div>
           <div class="ch-row"><span class="ch-label">Цена клиенту</span><span class="ch-val" id="r_oz_cust">—</span></div>
           <div class="ch-row"><span class="ch-label">Расходы МП</span><span class="ch-val" id="r_oz_exp">—</span></div>
           <div class="ch-row main"><span class="ch-label">Ком. маржа</span><span class="ch-val main-val" id="r_oz_margin">—</span></div>
@@ -576,7 +576,7 @@ function recalc() {
   const oz_mrts_eff = num('oz_mrts') > 0 ? num('oz_mrts') : mrts;
   const oz_com=num('oz_com')/100, oz_spp=num('oz_spp')/100, oz_card=num('oz_card')/100;
   const oz_log=num('oz_log')/100, oz_adv=num('oz_adv')/100;
-  const oz_cab  = oz_mrts_eff * 1.1;
+  const oz_cab  = oz_mrts_eff;
   const oz_cust = oz_mrts_eff * (1-oz_spp) * (1-oz_card);
   const oz_exp  = oz_cab * (oz_com + oz_log + oz_adv);
   const oz_marg = oz_cab - oz_exp - cogs;
