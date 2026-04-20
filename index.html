@@ -123,14 +123,15 @@ textarea:focus{border-color:var(--accent)}
 .niche-stat-row .ns-label{color:var(--muted)}
 .niche-stat-row .ns-val{font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
 .comp-links-wrap{display:flex;flex-direction:column;gap:0;margin-top:8px}
-.comp-link-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.06)}
+.comp-link-row{display:flex;flex-direction:column;gap:4px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.06)}
 .comp-link-row:last-child{border-bottom:none}
-.comp-link-chip{flex:1;min-width:0;font-size:12px;font-weight:500;text-decoration:none;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.comp-link-chip{font-size:12px;font-weight:500;text-decoration:none;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:100%}
 .wb-block .comp-link-chip{color:#6B1FA8}
 .oz-block .comp-link-chip{color:#0051D4}
-.comp-price-group{display:flex;align-items:center;gap:3px;flex-shrink:0}
-.comp-price-label{font-size:10px;color:var(--muted);white-space:nowrap}
-.comp-price-input{width:74px;padding:3px 6px;font-size:12px;border:1px solid #D2D2D7;border-radius:6px;text-align:right;font-variant-numeric:tabular-nums;background:#fff;color:var(--text);outline:none;transition:border-color .15s}
+.comp-prices-row{display:flex;gap:8px;align-items:center}
+.comp-price-group{display:flex;align-items:center;gap:4px;flex:1;min-width:0}
+.comp-price-label{font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0}
+.comp-price-input{flex:1;min-width:0;padding:3px 6px;font-size:12px;border:1px solid #D2D2D7;border-radius:6px;text-align:right;font-variant-numeric:tabular-nums;background:#fff;color:var(--text);outline:none;transition:border-color .15s}
 .comp-price-input:focus{border-color:var(--accent)}
 .wb-block .comp-price-input:focus{border-color:#8B35C8}
 .oz-block .comp-price-input:focus{border-color:#005BFF}
@@ -973,13 +974,15 @@ function renderLinks(ch) {
       : `<span class="comp-link-chip">${label}</span>`;
     return `<div class="comp-link-row">
       ${chip}
-      <div class="comp-price-group">
-        <span class="comp-price-label">до&nbsp;СПП</span>
-        <input class="comp-price-input" type="number" value="${pb}" placeholder="₽" oninput="setCompPrice('${ch}',${i},'before',this.value)">
-      </div>
-      <div class="comp-price-group">
-        <span class="comp-price-label">после&nbsp;СПП</span>
-        <input class="comp-price-input" type="number" value="${pa}" placeholder="₽" oninput="setCompPrice('${ch}',${i},'after',this.value)">
+      <div class="comp-prices-row">
+        <div class="comp-price-group">
+          <span class="comp-price-label">до&nbsp;СПП</span>
+          <input class="comp-price-input" type="number" value="${pb}" placeholder="₽" oninput="setCompPrice('${ch}',${i},'before',this.value)">
+        </div>
+        <div class="comp-price-group">
+          <span class="comp-price-label">после&nbsp;СПП</span>
+          <input class="comp-price-input" type="number" value="${pa}" placeholder="₽" oninput="setCompPrice('${ch}',${i},'after',this.value)">
+        </div>
       </div>
     </div>`;
   }).join('');
