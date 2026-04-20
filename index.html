@@ -106,6 +106,22 @@ input[type=file]{display:none}
 .cur-btn.active{background:var(--accent);color:#fff}
 .rate-field-wrap{transition:opacity .2s}
 .rate-field-wrap.hidden{opacity:0;pointer-events:none}
+.mrts-override{margin:14px 0 0;padding-top:12px;border-top:1px solid rgba(0,0,0,.08)}
+.mrts-override label{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:4px}
+.mrts-hint{font-weight:400;opacity:.7;font-variant-numeric:tabular-nums}
+textarea{width:100%;border:1px solid #D2D2D7;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;color:var(--text);background:#fff;outline:none;resize:vertical;transition:border-color .15s;line-height:1.5}
+textarea:focus{border-color:var(--accent)}
+.niche-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:0}
+.niche-link{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500;text-decoration:none;background:rgba(0,0,0,.06);color:var(--text);transition:background .12s}
+.niche-link:hover{background:rgba(0,0,0,.12)}
+.wb-block .niche-link{background:rgba(107,31,168,.10);color:#6B1FA8}
+.wb-block .niche-link:hover{background:rgba(107,31,168,.18)}
+.oz-block .niche-link{background:rgba(0,91,255,.10);color:#0051D4}
+.oz-block .niche-link:hover{background:rgba(0,91,255,.18)}
+.niche-stat{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.niche-stat-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 10px;border-radius:6px;font-size:12px}
+.niche-stat-row .ns-label{color:var(--muted)}
+.niche-stat-row .ns-val{font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
 
 @media print{
   body{background:#fff;min-width:auto}
@@ -240,7 +256,11 @@ input[type=file]{display:none}
       <!-- WB -->
       <div class="channel-block wb-block">
         <div class="channel-title"><span class="ch-logo"></span>Wildberries</div>
-        <div class="grid-2">
+        <div class="mrts-override">
+          <label>МРЦ WB, ₽ <span class="mrts-hint" id="wb_mrts_hint"></span></label>
+          <input type="number" id="wb_mrts" value="" placeholder="авто" min="0" step="1" oninput="recalc()">
+        </div>
+        <div class="grid-2" style="margin-top:12px">
           <div class="field"><label>Комиссия МП (%)</label><input type="number" id="wb_com" value="40" min="0" max="100" step="0.1" oninput="recalc()"></div>
           <div class="field"><label>СПП (%)</label><input type="number" id="wb_spp" value="41" min="0" max="100" step="0.1" oninput="recalc()"></div>
           <div class="field"><label>WB-кошелёк (%)</label><input type="number" id="wb_wallet" value="3" min="0" max="100" step="0.1" oninput="recalc()"></div>
@@ -257,7 +277,11 @@ input[type=file]{display:none}
       <!-- OZON -->
       <div class="channel-block oz-block">
         <div class="channel-title"><span class="ch-logo"></span>OZON</div>
-        <div class="grid-2">
+        <div class="mrts-override">
+          <label>МРЦ OZON, ₽ <span class="mrts-hint" id="oz_mrts_hint"></span></label>
+          <input type="number" id="oz_mrts" value="" placeholder="авто" min="0" step="1" oninput="recalc()">
+        </div>
+        <div class="grid-2" style="margin-top:12px">
           <div class="field"><label>Комиссия МП (%)</label><input type="number" id="oz_com" value="20" min="0" max="100" step="0.1" oninput="recalc()"></div>
           <div class="field"><label>СПП (%)</label><input type="number" id="oz_spp" value="20" min="0" max="100" step="0.1" oninput="recalc()"></div>
           <div class="field"><label>OZON-карта (%)</label><input type="number" id="oz_card" value="9" min="0" max="100" step="0.1" oninput="recalc()"></div>
@@ -274,9 +298,74 @@ input[type=file]{display:none}
     </div>
   </div>
 
-  <!-- BLOCK 05: Каскад юнит-экономики -->
+  <!-- BLOCK 05: Анализ ниши -->
   <div class="block">
-    <div class="block-title">05 · Каскад юнит-экономики</div>
+    <div class="block-title">05 · Анализ ниши и конкуренты</div>
+    <div class="channels">
+      <!-- WB Niche -->
+      <div class="channel-block wb-block">
+        <div class="channel-title"><span class="ch-logo"></span>Wildberries</div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Объём ниши, ₽/мес</label>
+            <input type="number" id="wb_niche_vol" placeholder="0" min="0" step="1000" oninput="recalc()">
+          </div>
+          <div class="field">
+            <label>Средняя цена ниши, ₽</label>
+            <input type="number" id="wb_niche_price" placeholder="0" min="0" step="1" oninput="recalc()">
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Ссылки на конкурентов (по одной на строку)</label>
+          <textarea id="wb_links" placeholder="https://www.wildberries.ru/catalog/..." rows="3" oninput="renderLinks('wb')"></textarea>
+        </div>
+        <div class="niche-links" id="wb_links_rendered"></div>
+        <div class="niche-stat" id="wb_niche_stat" style="margin-top:10px;display:none">
+          <div class="niche-stat-row" style="background:rgba(107,31,168,.06)">
+            <span class="ns-label">Доля рынка (WB)</span>
+            <span class="ns-val" id="r_wb_share">—</span>
+          </div>
+          <div class="niche-stat-row" style="background:rgba(107,31,168,.06)">
+            <span class="ns-label">Наша цена vs ср. ниши</span>
+            <span class="ns-val" id="r_wb_vs_avg">—</span>
+          </div>
+        </div>
+      </div>
+      <!-- OZON Niche -->
+      <div class="channel-block oz-block">
+        <div class="channel-title"><span class="ch-logo"></span>OZON</div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Объём ниши, ₽/мес</label>
+            <input type="number" id="oz_niche_vol" placeholder="0" min="0" step="1000" oninput="recalc()">
+          </div>
+          <div class="field">
+            <label>Средняя цена ниши, ₽</label>
+            <input type="number" id="oz_niche_price" placeholder="0" min="0" step="1" oninput="recalc()">
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Ссылки на конкурентов (по одной на строку)</label>
+          <textarea id="oz_links" placeholder="https://www.ozon.ru/product/..." rows="3" oninput="renderLinks('oz')"></textarea>
+        </div>
+        <div class="niche-links" id="oz_links_rendered"></div>
+        <div class="niche-stat" id="oz_niche_stat" style="margin-top:10px;display:none">
+          <div class="niche-stat-row" style="background:rgba(0,91,255,.05)">
+            <span class="ns-label">Доля рынка (OZON)</span>
+            <span class="ns-val" id="r_oz_share">—</span>
+          </div>
+          <div class="niche-stat-row" style="background:rgba(0,91,255,.05)">
+            <span class="ns-label">Наша цена vs ср. ниши</span>
+            <span class="ns-val" id="r_oz_vs_avg">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOCK 06: Каскад юнит-экономики -->
+  <div class="block">
+    <div class="block-title">06 · Каскад юнит-экономики</div>
     <div class="cascade">
       <div class="cas-row total">
         <span class="cas-label">Выручка без НДС</span>
@@ -319,9 +408,9 @@ input[type=file]{display:none}
     </div>
   </div>
 
-  <!-- BLOCK 06: Dashboard Go/No-Go -->
+  <!-- BLOCK 07: Dashboard Go/No-Go -->
   <div class="block">
-    <div class="block-title">06 · Dashboard Go / No-Go</div>
+    <div class="block-title">07 · Dashboard Go / No-Go</div>
     <div class="gates">
       <div class="gate" id="g1">
         <div class="gate-name">G1 · FM%</div>
@@ -468,32 +557,58 @@ function recalc() {
   $('r_rev').textContent = fmtRub(rev);
 
   // Block 04 - WB
+  const wb_mrts_eff = num('wb_mrts') > 0 ? num('wb_mrts') : mrts;
   const wb_com=num('wb_com')/100, wb_spp=num('wb_spp')/100, wb_wallet=num('wb_wallet')/100;
   const wb_log=num('wb_log')/100, wb_adv=num('wb_adv')/100;
-  const wb_cab  = mrts;
-  const wb_cust = mrts * (1-wb_spp) * (1-wb_wallet);
+  const wb_cab  = wb_mrts_eff;
+  const wb_cust = wb_mrts_eff * (1-wb_spp) * (1-wb_wallet);
   const wb_exp  = wb_cab * (wb_com + wb_log + wb_adv);
   const wb_marg = wb_cab - wb_exp - cogs;
   const wb_margPct = wb_cust > 0 ? wb_marg / wb_cust : 0;
 
+  $('wb_mrts_hint').textContent = `авто: ${fmtRub(mrts)}`;
   $('r_wb_cab').textContent  = fmtRub(wb_cab);
   $('r_wb_cust').textContent = fmtRub(wb_cust);
   $('r_wb_exp').textContent  = fmtRub(wb_exp);
   $('r_wb_margin').textContent = fmtRub(wb_marg) + ' / ' + fmtPct(wb_margPct);
 
   // Block 04 - OZON
+  const oz_mrts_eff = num('oz_mrts') > 0 ? num('oz_mrts') : mrts;
   const oz_com=num('oz_com')/100, oz_spp=num('oz_spp')/100, oz_card=num('oz_card')/100;
   const oz_log=num('oz_log')/100, oz_adv=num('oz_adv')/100;
-  const oz_cab  = mrts * 1.1;
-  const oz_cust = mrts * (1-oz_spp) * (1-oz_card);
+  const oz_cab  = oz_mrts_eff * 1.1;
+  const oz_cust = oz_mrts_eff * (1-oz_spp) * (1-oz_card);
   const oz_exp  = oz_cab * (oz_com + oz_log + oz_adv);
   const oz_marg = oz_cab - oz_exp - cogs;
   const oz_margPct = oz_cust > 0 ? oz_marg / oz_cust : 0;
 
+  $('oz_mrts_hint').textContent = `авто: ${fmtRub(mrts)}`;
   $('r_oz_cab').textContent  = fmtRub(oz_cab);
   $('r_oz_cust').textContent = fmtRub(oz_cust);
   $('r_oz_exp').textContent  = fmtRub(oz_exp);
   $('r_oz_margin').textContent = fmtRub(oz_marg) + ' / ' + fmtPct(oz_margPct);
+
+  // Block 05 - Niche analysis
+  const wb_niche_vol = num('wb_niche_vol'), wb_niche_price = num('wb_niche_price');
+  const oz_niche_vol = num('oz_niche_vol'), oz_niche_price = num('oz_niche_price');
+  if (wb_niche_vol > 0 || wb_niche_price > 0) {
+    $('wb_niche_stat').style.display = 'flex';
+    $('r_wb_share').textContent = wb_niche_vol > 0 ? fmtPct(rev / (wb_niche_vol * 12)) : '—';
+    if (wb_niche_price > 0) {
+      const diff = (wb_mrts_eff - wb_niche_price) / wb_niche_price;
+      $('r_wb_vs_avg').textContent = (diff >= 0 ? '+' : '') + fmtPct(diff);
+      $('r_wb_vs_avg').style.color = diff <= 0 ? 'var(--success)' : 'var(--danger)';
+    } else { $('r_wb_vs_avg').textContent = '—'; }
+  } else { $('wb_niche_stat').style.display = 'none'; }
+  if (oz_niche_vol > 0 || oz_niche_price > 0) {
+    $('oz_niche_stat').style.display = 'flex';
+    $('r_oz_share').textContent = oz_niche_vol > 0 ? fmtPct(rev / (oz_niche_vol * 12)) : '—';
+    if (oz_niche_price > 0) {
+      const diff = (oz_mrts_eff - oz_niche_price) / oz_niche_price;
+      $('r_oz_vs_avg').textContent = (diff >= 0 ? '+' : '') + fmtPct(diff);
+      $('r_oz_vs_avg').style.color = diff <= 0 ? 'var(--success)' : 'var(--danger)';
+    } else { $('r_oz_vs_avg').textContent = '—'; }
+  } else { $('oz_niche_stat').style.display = 'none'; }
 
   // Block 05 - Cascade
   const cogsTot = cogs * sales;
@@ -791,6 +906,22 @@ async function exportExcel() {
   const nm=(v.skuName||'SKU').replace(/[/\\?%*:|"<>]/g,'').trim();
   a.href=url; a.download=`Расчёт_${nm}_${ds}.xlsx`; a.click();
   URL.revokeObjectURL(url);
+}
+
+function renderLinks(ch) {
+  const raw = $(ch + '_links').value;
+  const container = $(ch + '_links_rendered');
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lines.length) { container.innerHTML = ''; return; }
+  container.innerHTML = lines.map(l => {
+    try {
+      const url = new URL(l);
+      const label = url.hostname.replace('www.','') + (url.pathname.length > 1 ? '/…' : '');
+      return `<a href="${l}" target="_blank" rel="noopener" class="niche-link">↗ ${label}</a>`;
+    } catch {
+      return `<span class="niche-link" style="cursor:default">${l}</span>`;
+    }
+  }).join('');
 }
 
 // Init
