@@ -288,7 +288,8 @@ textarea:focus{border-color:var(--accent)}
           <div class="ch-row"><span class="ch-label">Цена кабинета</span><span class="ch-val" id="r_wb_cab">—</span></div>
           <div class="ch-row"><span class="ch-label">Цена клиенту</span><span class="ch-val" id="r_wb_cust">—</span></div>
           <div class="ch-row"><span class="ch-label">Расходы МП</span><span class="ch-val" id="r_wb_exp">—</span></div>
-          <div class="ch-row main"><span class="ch-label">Ком. маржа</span><span class="ch-val main-val" id="r_wb_margin">—</span></div>
+          <div class="ch-row main"><span class="ch-label">КМ с НДС (операц.)</span><span class="ch-val main-val" id="r_wb_marg_op">—</span></div>
+          <div class="ch-row main"><span class="ch-label">КМ P&amp;L (без НДС)</span><span class="ch-val main-val" id="r_wb_marg_pl">—</span></div>
         </div>
       </div>
       <!-- OZON -->
@@ -309,7 +310,8 @@ textarea:focus{border-color:var(--accent)}
           <div class="ch-row"><span class="ch-label">Цена кабинета (МРЦ)</span><span class="ch-val" id="r_oz_cab">—</span></div>
           <div class="ch-row"><span class="ch-label">Цена клиенту</span><span class="ch-val" id="r_oz_cust">—</span></div>
           <div class="ch-row"><span class="ch-label">Расходы МП</span><span class="ch-val" id="r_oz_exp">—</span></div>
-          <div class="ch-row main"><span class="ch-label">Ком. маржа</span><span class="ch-val main-val" id="r_oz_margin">—</span></div>
+          <div class="ch-row main"><span class="ch-label">КМ с НДС (операц.)</span><span class="ch-val main-val" id="r_oz_marg_op">—</span></div>
+          <div class="ch-row main"><span class="ch-label">КМ P&amp;L (без НДС)</span><span class="ch-val main-val" id="r_oz_marg_pl">—</span></div>
         </div>
       </div>
     </div>
@@ -597,14 +599,22 @@ function recalc() {
   const wb_cab  = wb_mrts_eff;
   const wb_cust = wb_mrts_eff * (1-wb_spp) * (1-wb_wallet);
   const wb_exp  = wb_cab * (wb_com + wb_log + wb_adv);
-  const wb_marg = wb_cab - wb_exp - cogs * (1 + nds);
-  const wb_margPct = wb_cust > 0 ? wb_marg / wb_cust : 0;
+  // Операционная с НДС: КМ = МРЦ*(1−ком−лог−рекл) − COGS*(1+НДС); % = КМ/цена_клиенту
+  const wb_marg_op    = wb_cab * (1 - wb_com - wb_log - wb_adv) - cogs * (1 + nds);
+  const wb_margPct_op = wb_cust > 0 ? wb_marg_op / wb_cust : 0;
+  // P&L без НДС: Выр = МРЦ*(1−СПП−кош)/(1+НДС)*(1−aspDisc); Расх = МРЦ*(ком+лог+рекл−СПП−кош)/(1+НДС)
+  const wb_rev_pl     = wb_mrts_eff * (1 - wb_spp - wb_wallet) / (1 + nds) * (1 - aspDisc);
+  const wb_exp_pl     = wb_mrts_eff * (wb_com + wb_log + wb_adv - wb_spp - wb_wallet) / (1 + nds);
+  const wb_marg_pl    = wb_rev_pl - cogs - wb_exp_pl;
+  const wb_margPct_pl = wb_rev_pl > 0 ? wb_marg_pl / wb_rev_pl : 0;
+  const wb_marg = wb_marg_op; const wb_margPct = wb_margPct_op;
 
   $('wb_mrts_hint').textContent = `авто: ${fmtRub(mrts)}`;
   $('r_wb_cab').textContent  = fmtRub(wb_cab);
   $('r_wb_cust').textContent = fmtRub(wb_cust);
   $('r_wb_exp').textContent  = fmtRub(wb_exp);
-  $('r_wb_margin').textContent = fmtRub(wb_marg) + ' / ' + fmtPct(wb_margPct);
+  $('r_wb_marg_op').textContent = fmtRub(wb_marg_op) + ' / ' + fmtPct(wb_margPct_op);
+  $('r_wb_marg_pl').textContent = fmtRub(wb_marg_pl) + ' / ' + fmtPct(wb_margPct_pl);
 
   // Block 04 - OZON
   const oz_mrts_eff = num('oz_mrts') > 0 ? num('oz_mrts') : mrts;
@@ -613,14 +623,22 @@ function recalc() {
   const oz_cab  = oz_mrts_eff;
   const oz_cust = oz_mrts_eff * (1-oz_spp) * (1-oz_card);
   const oz_exp  = oz_cab * (oz_com + oz_log + oz_adv);
-  const oz_marg = oz_cab - oz_exp - cogs * (1 + nds);
-  const oz_margPct = oz_cust > 0 ? oz_marg / oz_cust : 0;
+  // Операционная с НДС
+  const oz_marg_op    = oz_cab * (1 - oz_com - oz_log - oz_adv) - cogs * (1 + nds);
+  const oz_margPct_op = oz_cust > 0 ? oz_marg_op / oz_cust : 0;
+  // P&L без НДС
+  const oz_rev_pl     = oz_mrts_eff * (1 - oz_spp - oz_card) / (1 + nds) * (1 - aspDisc);
+  const oz_exp_pl     = oz_mrts_eff * (oz_com + oz_log + oz_adv - oz_spp - oz_card) / (1 + nds);
+  const oz_marg_pl    = oz_rev_pl - cogs - oz_exp_pl;
+  const oz_margPct_pl = oz_rev_pl > 0 ? oz_marg_pl / oz_rev_pl : 0;
+  const oz_marg = oz_marg_op; const oz_margPct = oz_margPct_op;
 
   $('oz_mrts_hint').textContent = `авто: ${fmtRub(mrts)}`;
   $('r_oz_cab').textContent  = fmtRub(oz_cab);
   $('r_oz_cust').textContent = fmtRub(oz_cust);
   $('r_oz_exp').textContent  = fmtRub(oz_exp);
-  $('r_oz_margin').textContent = fmtRub(oz_marg) + ' / ' + fmtPct(oz_margPct);
+  $('r_oz_marg_op').textContent = fmtRub(oz_marg_op) + ' / ' + fmtPct(oz_margPct_op);
+  $('r_oz_marg_pl').textContent = fmtRub(oz_marg_pl) + ' / ' + fmtPct(oz_margPct_pl);
 
   // Block 05 - Niche analysis
   function autoAvg(ch, type) {
@@ -690,7 +708,7 @@ function recalc() {
 
   // Block 06 - Gates
   const g1lvl = fmPct>=0.60?0:fmPct>=0.55?1:2;
-  const minMarg = Math.min(wb_margPct, oz_margPct);
+  const minMarg = Math.min(wb_margPct_pl, oz_margPct_pl);
   const g2lvl = minMarg>=0.42?0:minMarg>=0.35?1:2;
   const g3lvl = ebit>0?0:2;
   const g4lvl = roic>=1.0?0:roic>=0.5?1:2;
@@ -716,8 +734,10 @@ function recalc() {
     wb_com:wb_com*100,wb_spp:wb_spp*100,wb_wallet:wb_wallet*100,wb_log:wb_log*100,wb_adv:wb_adv*100,
     oz_com:oz_com*100,oz_spp:oz_spp*100,oz_card:oz_card*100,oz_log:oz_log*100,oz_adv:oz_adv*100,
     cogs,mrts,asp,tz,ic,rev,cogsTot,fm,fmPct,opex,ebit,tax,nopat,roic,
-    wb_cab,wb_cust,wb_exp,wb_marg,wb_margPct,wb_mrts_eff,
-    oz_cab,oz_cust,oz_exp,oz_marg,oz_margPct,oz_mrts_eff,
+    wb_cab,wb_cust,wb_exp,wb_mrts_eff,
+    wb_marg_op,wb_margPct_op,wb_marg_pl,wb_margPct_pl,
+    oz_cab,oz_cust,oz_exp,oz_mrts_eff,
+    oz_marg_op,oz_margPct_op,oz_marg_pl,oz_margPct_pl,
     wb_niche_vol,wb_avg_before,wb_avg_after,wb_links_data,
     oz_niche_vol,oz_avg_before,oz_avg_after,oz_links_data,
     skuName:$('skuName').value, photoDataUrl:_photoDataUrl
@@ -866,8 +886,10 @@ async function exportExcel() {
   chRow('Цена кабинета, ₽',Math.round(v.wb_cab),Math.round(v.oz_cab),false,'#,##0');
   chRow('Цена клиенту, ₽',Math.round(v.wb_cust),Math.round(v.oz_cust),false,'#,##0');
   chRow('Расходы МП, ₽',Math.round(v.wb_exp),Math.round(v.oz_exp),false,'#,##0');
-  chRow('Ком. маржа, ₽',Math.round(v.wb_marg),Math.round(v.oz_marg),true,'#,##0');
-  chRow('Ком. маржа, %',v.wb_margPct,v.oz_margPct,true,'0.0%');
+  chRow('КМ с НДС (операц.), ₽',Math.round(v.wb_marg_op),Math.round(v.oz_marg_op),true,'#,##0');
+  chRow('КМ с НДС (операц.), %',v.wb_margPct_op,v.oz_margPct_op,true,'0.0%');
+  chRow('КМ P&L (без НДС), ₽',Math.round(v.wb_marg_pl),Math.round(v.oz_marg_pl),true,'#,##0');
+  chRow('КМ P&L (без НДС), %',v.wb_margPct_pl,v.oz_margPct_pl,true,'0.0%');
   gap();
 
   // ---- BLOCK 05: Niche & Competitors ----
