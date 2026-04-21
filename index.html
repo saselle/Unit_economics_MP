@@ -597,7 +597,7 @@ function recalc() {
   const wb_cab  = wb_mrts_eff;
   const wb_cust = wb_mrts_eff * (1-wb_spp) * (1-wb_wallet);
   const wb_exp  = wb_cab * (wb_com + wb_log + wb_adv);
-  const wb_marg = wb_cab - wb_exp - cogs;
+  const wb_marg = wb_cab - wb_exp - cogs * (1 + nds);
   const wb_margPct = wb_cust > 0 ? wb_marg / wb_cust : 0;
 
   $('wb_mrts_hint').textContent = `авто: ${fmtRub(mrts)}`;
@@ -613,7 +613,7 @@ function recalc() {
   const oz_cab  = oz_mrts_eff;
   const oz_cust = oz_mrts_eff * (1-oz_spp) * (1-oz_card);
   const oz_exp  = oz_cab * (oz_com + oz_log + oz_adv);
-  const oz_marg = oz_cab - oz_exp - cogs;
+  const oz_marg = oz_cab - oz_exp - cogs * (1 + nds);
   const oz_margPct = oz_cust > 0 ? oz_marg / oz_cust : 0;
 
   $('oz_mrts_hint').textContent = `авто: ${fmtRub(mrts)}`;
