@@ -602,8 +602,8 @@ function recalc() {
   // Операционная с НДС: КМ = МРЦ*(1−ком−лог−рекл) − COGS*(1+НДС); % = КМ/цена_клиенту
   const wb_marg_op    = wb_cab * (1 - wb_com - wb_log - wb_adv) - cogs * (1 + nds);
   const wb_margPct_op = wb_cust > 0 ? wb_marg_op / wb_cust : 0;
-  // P&L без НДС: Выр = МРЦ*(1−СПП−кош)/(1+НДС)*(1−aspDisc); Расх = МРЦ*(ком+лог+рекл−СПП−кош)/(1+НДС)
-  const wb_rev_pl     = wb_mrts_eff * (1 - wb_spp - wb_wallet) / (1 + nds) * (1 - aspDisc);
+  // P&L без НДС: Выр = МРЦ*(1−СПП−кош)/(1+НДС); Расх = МРЦ*(ком+лог+рекл−СПП−кош)/(1+НДС)
+  const wb_rev_pl     = wb_mrts_eff * (1 - wb_spp - wb_wallet) / (1 + nds);
   const wb_exp_pl     = wb_mrts_eff * (wb_com + wb_log + wb_adv - wb_spp - wb_wallet) / (1 + nds);
   const wb_marg_pl    = wb_rev_pl - cogs - wb_exp_pl;
   const wb_margPct_pl = wb_rev_pl > 0 ? wb_marg_pl / wb_rev_pl : 0;
@@ -627,7 +627,7 @@ function recalc() {
   const oz_marg_op    = oz_cab * (1 - oz_com - oz_log - oz_adv) - cogs * (1 + nds);
   const oz_margPct_op = oz_cust > 0 ? oz_marg_op / oz_cust : 0;
   // P&L без НДС
-  const oz_rev_pl     = oz_mrts_eff * (1 - oz_spp - oz_card) / (1 + nds) * (1 - aspDisc);
+  const oz_rev_pl     = oz_mrts_eff * (1 - oz_spp - oz_card) / (1 + nds);
   const oz_exp_pl     = oz_mrts_eff * (oz_com + oz_log + oz_adv - oz_spp - oz_card) / (1 + nds);
   const oz_marg_pl    = oz_rev_pl - cogs - oz_exp_pl;
   const oz_margPct_pl = oz_rev_pl > 0 ? oz_marg_pl / oz_rev_pl : 0;
