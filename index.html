@@ -1028,7 +1028,7 @@ async function exportExcel() {
   fn(rh,{bold:true,size:10,color:{argb:hx(C.white)}}); al(rh,'left'); rh.alignment.indent=1;
   gap();
 
-  const minMarg=Math.min(v.wb_margPct,v.oz_margPct);
+  const minMarg=Math.min(v.wb_margPct_pl,v.oz_margPct_pl);
   const gates=[
     {name:'G1 · FM%',val:v.fmPct,fmt:'0.0%',lvl:v.fmPct>=0.60?0:v.fmPct>=0.55?1:2,
      ref:'≥ 60% GO  ·  55–60% Пересмотр  ·  < 55% Стоп'},
