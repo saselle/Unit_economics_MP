@@ -2,3 +2,8 @@
 *.docx
 *.xlsx
 calculator.html
+
+# Python
+__pycache__/
+*.pyc
+.venv/
