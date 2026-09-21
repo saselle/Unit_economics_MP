@@ -311,7 +311,7 @@ def main() -> None:
             print("Проверьте доступ к WB командой:  py scripts\\check_wb.py")
             print("Если поиск работает, а отзывы нет — пришлите этот экран: "
                   "значит, WB снова сменил адреса карточек или отзывов.")
-        return
+        sys.exit(1)
 
     write_reviews(reviews_path, rows)
     ensure_parent(raw_path)

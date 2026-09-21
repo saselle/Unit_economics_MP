@@ -26,7 +26,27 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Запуск
+## Запуск в один клик
+
+**Windows:** откройте двойным щелчком файл **`Запустить анализ.bat`** в папке проекта.
+Он сам поставит недостающие библиотеки и прогонит все шаги: сбор выдачи, сбор отзывов,
+аналитику, отчёты в Markdown, Excel и Word. В конце покажет список собранных файлов.
+
+**macOS / Linux** (и Windows, если удобнее из консоли):
+
+```bash
+python scripts/run_all.py                  # всё целиком
+python scripts/run_all.py --skip-reviews   # без отзывов, быстрее
+python scripts/run_all.py --skip-collect   # пересчитать отчёты на уже собранных данных
+python scripts/run_all.py --top-n 30 --reviews-top 40   # глубже выдача и больше отзывов
+```
+
+Шаг, который не удался, не останавливает остальные: если WB не отдал отзывы,
+отчёты по выдаче всё равно соберутся.
+
+## Запуск по шагам
+
+Те же действия по отдельности — когда нужно перезапустить только часть:
 
 ```bash
 python scripts/collect_wb.py        # 1. сбор карточек с Wildberries
