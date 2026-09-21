@@ -6,7 +6,8 @@ marketplaces:
     enabled: true
     top_n: 20               # сколько карточек брать по каждому запросу
     dest: -1257786          # регион доставки WB (по умолчанию — Москва)
-    request_delay_sec: 1.0  # пауза между запросами, чтобы не ловить бан
+    request_delay_sec: 1.5  # пауза между запросами, чтобы не ловить бан
+    rate_limit_pause_sec: 15  # пауза, если WB ответил 429 («слишком часто»)
     timeout_sec: 20
     retries: 3
     abort_after_failed_queries: 3  # столько пустых запросов подряд -> переходим на fallback

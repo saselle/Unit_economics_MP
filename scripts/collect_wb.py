@@ -188,11 +188,17 @@ def fetch_query(session, query: str, wb_cfg: dict) -> dict | None:
     }
     retries = int(wb_cfg.get("retries", 3))
     timeout = float(wb_cfg.get("timeout_sec", 20))
+    rate_limit_pause = float(wb_cfg.get("rate_limit_pause_sec", 15))
 
     for endpoint in SEARCH_ENDPOINTS:
         for attempt in range(1, retries + 1):
             try:
                 response = session.get(endpoint, params=params, headers=HEADERS, timeout=timeout)
+                if response.status_code == 429:
+                    # WB просит сбавить темп — ждём дольше обычного и повторяем
+                    print(f"    WB ограничил частоту (429), жду {rate_limit_pause} сек")
+                    time.sleep(rate_limit_pause)
+                    continue
                 response.raise_for_status()
                 payload = response.json()
                 if extract_products(payload):
