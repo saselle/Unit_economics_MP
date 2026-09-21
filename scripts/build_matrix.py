@@ -27,6 +27,7 @@ import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.formula import ArrayFormula
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import load_config, resolve  # noqa: E402
@@ -55,8 +56,9 @@ MATRIX_HEADERS = [
     ("Код SKU", 14), ("Категория", 20), ("Размер", 22), ("Комплектность", 15),
     ("Цвета", 30), ("Позиций", 9), ("Плотность, г/м²", 13), ("Состав", 24),
     ("Впитываемость", 13), ("Обработка", 15),
-    ("Рынок: карточек", 12), ("Рынок: средняя цена", 14), ("Рынок: ср. отзывов", 13),
-    ("Таргет, ₽", 11), ("К рынку", 10), ("Роль SKU", 26), ("УТП для карточки", 46),
+    ("Рынок: карточек", 12), ("Рынок: медиана", 13), ("Рынок: 25%", 11),
+    ("Рынок: 75%", 11), ("Рынок: ср. отзывов", 13),
+    ("Таргет, ₽", 11), ("К медиане", 11), ("Роль SKU", 26), ("УТП для карточки", 46),
 ]
 
 UNIT_HEADERS = [
@@ -138,55 +140,61 @@ def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
             cell.border = BORDER
             cell.alignment = Alignment(wrap_text=j in (5, 8, 3), vertical="top")
 
-        # бенчмарк по размеру: сколько таких карточек в выдаче и почём.
-        # Пустой benchmark_size — это товар, для которого размер в названии не ищется
-        # (халаты продаются в размерах одежды): ставим прочерк, а не формулу,
-        # иначе COUNTIF посчитал бы пустые ячейки листа «Рынок».
+        # Бенчмарк по размеру. Медиана и перцентили считаются формулами массива
+        # (MEDIAN/QUARTILE с условием): обычных функций «медиана по условию» в Excel нет.
+        # Медиана честнее средней: в выдаче сидят премиум-выбросы по 4 000 ₽.
+        # Пустой benchmark_size — товар, у которого размера в названии нет (халаты),
+        # там формула не нужна: COUNTIF посчитал бы пустые ячейки листа «Рынок».
         if bench:
             ws.cell(row=row, column=11, value=f'=COUNTIF({size_rng},"{bench}")')
-            ws.cell(row=row, column=12,
-                    value=f'=IFERROR(AVERAGEIFS({price_rng},{size_rng},"{bench}"),"нет данных")')
-            ws.cell(row=row, column=13,
+            for col, formula in (
+                (12, f'=IFERROR(MEDIAN(IF({size_rng}="{bench}",{price_rng})),"нет данных")'),
+                (13, f'=IFERROR(QUARTILE(IF({size_rng}="{bench}",{price_rng}),1),"нет данных")'),
+                (14, f'=IFERROR(QUARTILE(IF({size_rng}="{bench}",{price_rng}),3),"нет данных")'),
+            ):
+                letter = get_column_letter(col)
+                ws.cell(row=row, column=col,
+                        value=ArrayFormula(f"{letter}{row}", formula))
+            ws.cell(row=row, column=15,
                     value=f'=IFERROR(AVERAGEIFS({reviews_rng},{size_rng},"{bench}"),"нет данных")')
         else:
-            for col in (11, 12, 13):
+            for col in (11, 12, 13, 14, 15):
                 ws.cell(row=row, column=col, value="собрать отдельно")
 
-        target = ws.cell(row=row, column=14, value=float(item.get("target_price", 0) or 0))
+        target = ws.cell(row=row, column=16, value=float(item.get("target_price", 0) or 0))
         target.font = INPUT_FONT
         target.fill = INPUT_FILL
-        ws.cell(row=row, column=15,
-                value=f'=IFERROR($N{row}/$L{row}-1,"—")')
-
-        ws.cell(row=row, column=16, value=item.get("role", ""))
-        ws.cell(row=row, column=17, value=item.get("usp", ""))
+        ws.cell(row=row, column=17, value=f'=IFERROR($P{row}/$L{row}-1,"—")')
 
         for col in (11, 12, 13, 14, 15, 16, 17):
             cell = ws.cell(row=row, column=col)
             cell.border = BORDER
-            if cell.font is None or col in (16, 17):
+            if col != 16:
                 cell.font = BODY
-            cell.alignment = Alignment(wrap_text=col in (16, 17), vertical="top")
-        ws.cell(row=row, column=11).font = BODY
-        ws.cell(row=row, column=12).font = BODY
-        ws.cell(row=row, column=13).font = BODY
         ws.cell(row=row, column=11).number_format = COUNT
-        ws.cell(row=row, column=12).number_format = MONEY
-        ws.cell(row=row, column=13).number_format = COUNT
-        ws.cell(row=row, column=14).number_format = MONEY
-        ws.cell(row=row, column=15).number_format = PERCENT
+        for col in (12, 13, 14, 16):
+            ws.cell(row=row, column=col).number_format = MONEY
+        ws.cell(row=row, column=15).number_format = COUNT
+        ws.cell(row=row, column=17).number_format = PERCENT
+
+        for col, value in ((18, item.get("role", "")), (19, item.get("usp", ""))):
+            cell = ws.cell(row=row, column=col, value=value)
+            cell.font = BODY
+            cell.border = BORDER
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
         row += 1
 
     last = row - 1
     ws.cell(row=row, column=1, value="Итого").font = BOLD
     ws.cell(row=row, column=6, value=f"=SUM($F$4:$F${last})").font = BOLD
-    ws.cell(row=row, column=14, value=f"=AVERAGE($N$4:$N${last})").font = BOLD
-    ws.cell(row=row, column=14).number_format = MONEY
+    ws.cell(row=row, column=16, value=f"=AVERAGE($P$4:$P${last})").font = BOLD
+    ws.cell(row=row, column=16).number_format = MONEY
     ws.cell(row=row, column=1).fill = CALC_FILL
 
     ws.cell(row=row + 2, column=1,
-            value="Жёлтые ячейки — ваши значения. «К рынку» = насколько таргет выше "
-                  "средней цены такого размера в выдаче.").font = NOTE
+            value="Жёлтые ячейки — ваши значения. «К медиане» = насколько таргет выше "
+                  "медианной цены такого размера в выдаче. Колонки 25% и 75% — "
+                  "ценовой коридор, в котором лежит основная масса карточек.").font = NOTE
     ws.cell(row=row + 3, column=1,
             value="«нет данных» в бенчмарке означает, что размер не попал в сбор: "
                   "запустите анализ заново — запросы по коврикам и салфеткам уже добавлены."
@@ -269,7 +277,7 @@ def build_unit(ws, matrix: pd.DataFrame, matrix_last: int) -> None:
     for i, (_, item) in enumerate(matrix.iterrows()):
         matrix_row = 4 + i
         ws.cell(row=row, column=1, value=f"=Матрица!$A${matrix_row}").font = BODY
-        ws.cell(row=row, column=2, value=f"=Матрица!$N${matrix_row}").font = BODY
+        ws.cell(row=row, column=2, value=f"=Матрица!$P${matrix_row}").font = BODY
         ws.cell(row=row, column=2).number_format = MONEY
 
         for col in (3, 4, 5):  # закупка, доставка, упаковка — вводит пользователь
