@@ -63,8 +63,13 @@ MATRIX_HEADERS = [
     ("Рынок: ср. отзывов", 12),
     ("Таргет, ₽", 11), ("Таргет за 1 шт", 12),
     ("К медиане", 11), ("К медиане за шт", 13),
+    ("Рынок: сумма частей", 13), ("К сумме частей", 12),
     ("Роль SKU", 26), ("УТП для карточки", 46),
 ]
+
+# Пометка вместо доли: у комплекта из разных размеров цена за предмет
+# ни с чем не сравнивается — салфетка 30х30 и банное 70х140 стоят по-разному.
+MIXED_NOTE = "смешанный набор"
 
 # Пояснения к заголовкам — всплывают при наведении мыши в Excel.
 # Столбцы с цифрами рынка без расшифровки читаются неоднозначно, а решение
@@ -104,7 +109,18 @@ HEADER_NOTES = {
         "Отклонение больше ±15% придётся объяснять в карточке.",
     "К медиане за шт":
         "То же сравнение, но за один предмет.\n"
-        "Для наборов смотреть нужно сюда, а не в соседнюю колонку.",
+        "Для наборов смотреть нужно сюда, а не в соседнюю колонку.\n"
+        "У комплекта из разных размеров стоит «смешанный набор»:\n"
+        "делить его чек на количество предметов бессмысленно.",
+    "Рынок: сумма частей":
+        "Сколько стоили бы те же предметы, купленные по отдельности\n"
+        "по медианной цене рынка. Для комплекта из разных размеров\n"
+        "это единственный корректный бенчмарк.",
+    "К сумме частей":
+        "Наша цена против суммы частей.\n"
+        "Минус — комплект выгоднее, чем набрать то же поштучно;\n"
+        "это прямой аргумент для карточки. Плюс — переплата за сборку,\n"
+        "её придётся объяснять коробкой, подачей или составом.",
 }
 
 UNIT_HEADERS = [
@@ -169,6 +185,30 @@ def build_market(ws, df: pd.DataFrame) -> int:
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = f"A1:K{last}"
     return last
+
+
+def parse_components(item, pieces: int) -> list[tuple[str, int]]:
+    """Из чего собран SKU: [(размер, количество), ...].
+
+    Однородной позиции хватает benchmark_size и количества предметов.
+    Подарочный комплект собран из разных размеров — их перечисляют в колонке
+    `components` матрицы в виде «70х140:1;50х80:1;30х30:2». Без этого цена
+    за предмет считалась по банному полотенцу, и салфетка 30х30 в составе
+    комплекта выглядела как провал по цене на 44%.
+    """
+    raw = str(item.get("components", "") or "").strip()
+    if raw and raw.lower() != "nan":
+        parts = []
+        for chunk in raw.split(";"):
+            size, _, qty = chunk.partition(":")
+            if size.strip():
+                parts.append((size.strip(), max(int(qty or 1), 1)))
+        if parts:
+            return parts
+
+    bench = str(item.get("benchmark_size", "") or "").strip()
+    # у халатов размера нет: там ростовки, и бенчмарк строится без размера
+    return [(bench, pieces)] if bench and bench.lower() != "nan" else []
 
 
 def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
@@ -245,21 +285,40 @@ def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
         target.fill = INPUT_FILL
         ws.cell(row=row, column=19, value=f'=IFERROR($R{row}/$K{row},"")')
         ws.cell(row=row, column=20, value=f'=IFERROR($R{row}/$M{row}-1,"—")')
-        ws.cell(row=row, column=21, value=f'=IFERROR($S{row}/$P{row}-1,"—")')
 
-        for col in range(12, 22):
+        # Сумма частей: сколько стоили бы те же предметы по отдельности
+        # по медиане рынка. Для смешанного комплекта — единственный
+        # корректный бенчмарк, для однородного — проверка на вменяемость.
+        components = parse_components(item, pieces)
+        mixed = len({csize for csize, _ in components}) > 1
+
+        ws.cell(row=row, column=21,
+                value=MIXED_NOTE if mixed else f'=IFERROR($S{row}/$P{row}-1,"—")')
+
+        terms = [f'MEDIAN(IF(({size_rng}="{csize}")*{pack_cond}*({kind_rng}="{kind}"),'
+                 f'{per_piece_rng}))*{qty}'
+                 for csize, qty in components if csize]
+        if terms:
+            ws.cell(row=row, column=22, value=ArrayFormula(
+                f"V{row}", f'=IFERROR({"+".join(terms)},"нет данных")'))
+            ws.cell(row=row, column=23, value=f'=IFERROR($R{row}/$V{row}-1,"—")')
+        else:
+            ws.cell(row=row, column=22, value="нет данных")
+            ws.cell(row=row, column=23, value="—")
+
+        for col in range(12, 24):
             cell = ws.cell(row=row, column=col)
             cell.border = BORDER
             if col != 18:
                 cell.font = BODY
         ws.cell(row=row, column=12).number_format = COUNT
-        for col in (13, 14, 15, 16, 18, 19):
+        for col in (13, 14, 15, 16, 18, 19, 22):
             ws.cell(row=row, column=col).number_format = MONEY
         ws.cell(row=row, column=17).number_format = COUNT
-        for col in (20, 21):
+        for col in (20, 21, 23):
             ws.cell(row=row, column=col).number_format = PERCENT
 
-        for col, value in ((22, item.get("role", "")), (23, item.get("usp", ""))):
+        for col, value in ((24, item.get("role", "")), (25, item.get("usp", ""))):
             cell = ws.cell(row=row, column=col, value=value)
             cell.font = BODY
             cell.border = BORDER
