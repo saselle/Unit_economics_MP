@@ -19,6 +19,8 @@ from common import curl_requests, make_session  # noqa: E402
 
 QUERY = "полотенце"
 
+# WB держит поиск на нескольких хостах, у каждого — свои версии.
+HOSTS = ["search.wb.ru", "u-search.wb.ru"]
 VERSIONS = ["v18", "v17", "v16", "v15", "v14", "v13", "v5", "v4"]
 
 BROWSER_HEADERS = {
@@ -98,40 +100,44 @@ def main() -> None:
         print("  и запустите этот скрипт заново — WB часто пропускает только её.\n")
     check_site(session)
 
-    total = len(VERSIONS) * len(PARAM_SETS) * len(HEADER_SETS)
-    print(f"Перебираю {total} вариантов запроса, это примерно минуту.\n")
+    print("Поиск WB — по 4 варианта запроса на каждую версию адреса:\n")
 
     winner = None
-    for version in VERSIONS:
-        url = f"https://search.wb.ru/exactmatch/ru/common/{version}/search"
-        for params_name, params in PARAM_SETS.items():
-            for headers_name, headers in HEADER_SETS.items():
-                label = f"{version:<4} | параметры {params_name:<8} | заголовки {headers_name:<10}"
-                try:
-                    response = session.get(url, params=params, headers=headers, timeout=15)
-                    status = response.status_code
-                    if status == 200:
-                        try:
-                            found = count_products(response.json())
-                        except ValueError:
-                            found = 0
-                        print(f"{label} -> 200, товаров: {found}")
-                        if found and winner is None:
-                            winner = (version, params_name, headers_name, found)
-                    else:
-                        print(f"{label} -> {status}")
-                except Exception as exc:
-                    print(f"{label} -> ошибка {type(exc).__name__}")
-                time.sleep(0.3)
+    for host in HOSTS:
+        for version in VERSIONS:
+            url = f"https://{host}/exactmatch/ru/common/{version}/search"
+            results = []
+            for params_name, params in PARAM_SETS.items():
+                for headers_name, headers in HEADER_SETS.items():
+                    try:
+                        response = session.get(url, params=params, headers=headers, timeout=15)
+                        status = response.status_code
+                        found = 0
+                        if status == 200:
+                            try:
+                                found = count_products(response.json())
+                            except ValueError:
+                                found = 0
+                            results.append(f"200/{found}")
+                            if found and winner is None:
+                                winner = (host, version, params_name, headers_name, found)
+                        else:
+                            results.append(str(status))
+                    except Exception as exc:
+                        results.append(type(exc).__name__[:12])
+                    time.sleep(0.3)
+            print(f"  {host:<14} {version:<4} -> " + "  ".join(results))
+            if winner:
+                break
         if winner:
             break
 
     print("\n" + "=" * 46)
     if winner:
-        version, params_name, headers_name, found = winner
-        print(f"РАБОТАЕТ: {version}, параметры «{params_name}», заголовки «{headers_name}», "
-              f"товаров {found}")
-        print("Пришлите эту строку — я поправлю сбор под неё.")
+        host, version, params_name, headers_name, found = winner
+        print(f"РАБОТАЕТ: {host} {version}, параметры «{params_name}», "
+              f"заголовки «{headers_name}», товаров {found}")
+        print("Можно запускать сбор:  py scripts\\collect_wb.py")
     else:
         print("Ни один вариант не сработал.")
         if curl_requests is None:

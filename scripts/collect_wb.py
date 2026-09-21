@@ -49,6 +49,8 @@ SEARCH_ENDPOINTS = [
     "https://search.wb.ru/exactmatch/ru/common/v13/search",
     "https://search.wb.ru/exactmatch/ru/common/v5/search",
     "https://search.wb.ru/exactmatch/ru/common/v4/search",
+    "https://u-search.wb.ru/exactmatch/ru/common/v18/search",
+    "https://u-search.wb.ru/exactmatch/ru/common/v13/search",
 ]
 
 HEADERS = {
