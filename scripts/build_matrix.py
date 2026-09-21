@@ -170,29 +170,28 @@ def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
         # тип товара тоже важен: в размере 50х80 полно ковриков, и без этого
         # фильтра они попадали в медиану полотенец
         kind = str(item.get("benchmark_kind", "") or "Полотенце").strip()
-        mask = f'({size_rng}="{bench}")*{pack_cond}*({kind_rng}="{kind}")'
+        # У халатов размер в названии не пишут (там ростовки), поэтому для них
+        # бенчмарк строится по типу товара и комплектности, без размера.
+        size_cond = f'({size_rng}="{bench}")*' if bench else ""
+        mask = f'{size_cond}{pack_cond}*({kind_rng}="{kind}")'
 
         ws.cell(row=row, column=11, value=pieces).font = BODY
         ws.cell(row=row, column=11).number_format = COUNT
 
-        if bench:
-            ws.cell(row=row, column=12,
-                    value=f'=COUNTIFS({size_rng},"{bench}",{pieces_rng},"{pack_criteria}",'
-                          f'{kind_rng},"{kind}")')
-            for col, formula in (
-                (13, f'=IFERROR(MEDIAN(IF({mask},{price_rng})),"нет данных")'),
-                (14, f'=IFERROR(QUARTILE(IF({mask},{price_rng}),1),"нет данных")'),
-                (15, f'=IFERROR(QUARTILE(IF({mask},{price_rng}),3),"нет данных")'),
-                (16, f'=IFERROR(MEDIAN(IF({mask},{per_piece_rng})),"нет данных")'),
-            ):
-                letter = get_column_letter(col)
-                ws.cell(row=row, column=col, value=ArrayFormula(f"{letter}{row}", formula))
-            ws.cell(row=row, column=17,
-                    value=f'=IFERROR(AVERAGEIFS({reviews_rng},{size_rng},"{bench}",'
-                          f'{pieces_rng},"{pack_criteria}",{kind_rng},"{kind}"),"нет данных")')
-        else:
-            for col in range(12, 18):
-                ws.cell(row=row, column=col, value="собрать отдельно")
+        size_criteria = ([size_rng, f'"{bench}"'] if bench else [])
+        count_args = ", ".join(size_criteria + [pieces_rng, f'"{pack_criteria}"',
+                                               kind_rng, f'"{kind}"'])
+        ws.cell(row=row, column=12, value=f"=COUNTIFS({count_args})")
+        for col, formula in (
+            (13, f'=IFERROR(MEDIAN(IF({mask},{price_rng})),"нет данных")'),
+            (14, f'=IFERROR(QUARTILE(IF({mask},{price_rng}),1),"нет данных")'),
+            (15, f'=IFERROR(QUARTILE(IF({mask},{price_rng}),3),"нет данных")'),
+            (16, f'=IFERROR(MEDIAN(IF({mask},{per_piece_rng})),"нет данных")'),
+        ):
+            letter = get_column_letter(col)
+            ws.cell(row=row, column=col, value=ArrayFormula(f"{letter}{row}", formula))
+        ws.cell(row=row, column=17,
+                value=f'=IFERROR(AVERAGEIFS({reviews_rng}, {count_args}),"нет данных")')
 
         target = ws.cell(row=row, column=18, value=float(item.get("target_price", 0) or 0))
         target.font = INPUT_FONT
