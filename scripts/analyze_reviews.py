@@ -57,6 +57,19 @@ def load_reviews(path: Path) -> pd.DataFrame:
     df["full_text"] = (df["text"] + " " + df["pros"] + " " + df["cons"]).str.lower()
 
     df = drop_foreign(df)
+    df = drop_duplicates(df)
+    return df
+
+
+def drop_duplicates(df: pd.DataFrame) -> pd.DataFrame:
+    """Убирает повторы: один отзыв мог прийти по нескольким артикулам сразу."""
+    if "review_id" not in df.columns:
+        return df
+    before = len(df)
+    df = df.drop_duplicates(subset=["review_id"])
+    if len(df) < before:
+        print(f"  убрано повторов отзыва: {before - len(df)} "
+              "(один товар продаётся под несколькими артикулами)")
     return df
 
 

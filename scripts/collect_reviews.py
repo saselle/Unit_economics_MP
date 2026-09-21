@@ -275,6 +275,7 @@ def main() -> None:
     rows: list[dict] = []
     raw: dict[str, list] = {}
     basket_hint: int | None = None  # номер корзины, сработавший на прошлом товаре
+    seen_imt: dict[str, str] = {}   # imt_id -> артикул, по которому уже собрали
 
     for i, product in enumerate(products, start=1):
         nm = product["product_id"]
@@ -286,6 +287,14 @@ def main() -> None:
             print("    не удалось узнать id карточки, пропускаю")
             time.sleep(delay)
             continue
+
+        if imt_id in seen_imt:
+            # один товар на WB часто продаётся несколькими артикулами с общей
+            # родительской карточкой — отзывы у них одни и те же
+            print(f"    та же карточка, что у артикула {seen_imt[imt_id]}, пропускаю")
+            time.sleep(delay)
+            continue
+        seen_imt[imt_id] = nm
 
         feedbacks = fetch_feedbacks(session, imt_id, nm, timeout)
         if not feedbacks:
