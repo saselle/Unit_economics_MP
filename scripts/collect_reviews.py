@@ -210,12 +210,17 @@ def normalize(feedback: dict, product: dict, imt_id: str, collected_at: str) -> 
 
 
 def pick_products(df: pd.DataFrame, top: int, only_nm: str | None,
-                  kinds: tuple[str, ...] = ("Полотенце", "Коврик", "Халат")) -> list[dict]:
+                  kinds: tuple[str, ...] = ("Полотенце", "Коврик", "Халат"),
+                  per_kind: int | None = None) -> list[dict]:
     """Выбирает карточки для сбора: самые «отзывные», без дублей по артикулу.
 
     Посторонние товары отсеиваются: в выдаче по запросам вроде «полотенце без
     отбеливания» попадаются пятновыводители и тряпки для уборки, и их отзывы
     к нашей категории отношения не имеют.
+
+    Отбор идёт по каждой категории отдельно (per_kind): у полотенец бывает по
+    100 тысяч отзывов, у халатов — по десять, и в общем топе халаты просто не
+    появляются.
     """
     df = df.copy()
     df["review_count"] = pd.to_numeric(df.get("review_count"), errors="coerce").fillna(0)
@@ -226,12 +231,20 @@ def pick_products(df: pd.DataFrame, top: int, only_nm: str | None,
         dropped = int((~kind.isin(kinds)).sum())
         if dropped:
             print(f"Отсеяно карточек не из нашей категории: {dropped}")
-        df = df[kind.isin(kinds)]
+        df = df[kind.isin(kinds)].copy()
+        df["kind"] = kind[kind.isin(kinds)]
 
     if only_nm:
         df = df[df["product_id"].astype(str) == str(only_nm)]
         if df.empty:
             return [{"product_id": str(only_nm), "brand": "", "title": ""}]
+    elif per_kind:
+        parts = [group.nlargest(per_kind, "review_count")
+                 for _, group in df.groupby("kind", sort=False)]
+        df = pd.concat(parts) if parts else df.head(0)
+        counts = df["kind"].value_counts().to_dict()
+        print("Отобрано по категориям: " +
+              ", ".join(f"{k} — {v}" for k, v in counts.items()))
     else:
         df = df.sort_values("review_count", ascending=False).head(top)
 
@@ -254,7 +267,10 @@ def write_reviews(path: Path, rows: list[dict]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Сбор отзывов Wildberries")
     parser.add_argument("--config", default="config.yaml")
-    parser.add_argument("--top", type=int, default=None, help="сколько карточек обойти")
+    parser.add_argument("--top", type=int, default=None,
+                        help="сколько карточек обойти всего (без деления по категориям)")
+    parser.add_argument("--top-per-kind", type=int, default=None,
+                        help="сколько карточек брать из каждой категории")
     parser.add_argument("--nm", default=None, help="собрать отзывы только по этому артикулу")
     args = parser.parse_args()
 
@@ -268,6 +284,9 @@ def main() -> None:
     raw_path = resolve(out_cfg.get("raw_reviews_file", "data/raw_wb_reviews.json"))
 
     top = args.top or int(rev_cfg.get("top_products", 15))
+    # по умолчанию берём топ из каждой категории, иначе халаты не попадают в выборку
+    per_kind = None if args.top else (args.top_per_kind
+                                      or int(rev_cfg.get("top_per_kind", 10)))
     max_per_product = int(rev_cfg.get("max_per_product", 300))
     delay = float(rev_cfg.get("request_delay_sec", 1.5))
     timeout = float(wb_cfg.get("timeout_sec", 20))
@@ -277,7 +296,7 @@ def main() -> None:
         sys.exit(f"Нет файла {products_path}. Сначала запустите scripts/collect_wb.py")
 
     df = pd.read_csv(products_path, dtype=str, keep_default_na=False)
-    products = pick_products(df, top, args.nm)
+    products = pick_products(df, top, args.nm, per_kind=per_kind)
     if not products:
         sys.exit("Не нашёл карточек для сбора отзывов.")
 
