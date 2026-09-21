@@ -270,10 +270,16 @@ def build_breakdowns(ws, df: pd.DataFrame, last: int) -> None:
 
 
 def build_prices(ws, df: pd.DataFrame, last: int, buckets: list) -> None:
+    """Лист «Цены».
+
+    Границы корзин лежат в ячейках, а формулы ссылаются на них через "&".
+    Так счёт не зависит от того, какой разделитель дробной части у Excel
+    (в русской локали точка в критерии ">=500.0" ломает COUNTIFS).
+    """
     ws.cell(row=1, column=1, value="Распределение выдачи по цене").font = TITLE_FONT
-    write_header(ws, ["Ценовая корзина", "Карточек", "Доля", "Ср. отзывов",
+    write_header(ws, ["От, ₽", "До, ₽", "Карточек", "Доля", "Ср. отзывов",
                       "Средний рейтинг"], row=2)
-    set_widths(ws, [22, 11, 10, 13, 15])
+    set_widths(ws, [12, 12, 11, 10, 13, 15])
 
     price, reviews, rating = (rng(COL["Цена"], last), rng(COL["Отзывов"], last),
                               rng(COL["Рейтинг"], last))
@@ -284,23 +290,33 @@ def build_prices(ws, df: pd.DataFrame, last: int, buckets: list) -> None:
             low, high = float(bucket[0]), float(bucket[1])
         except (TypeError, ValueError, IndexError):
             continue
-        label = f"{int(low)}–{int(high)} ₽"
-        ws.cell(row=row, column=1, value=label)
-        ws.cell(row=row, column=2,
-                value=f'=COUNTIFS({price},">={low}",{price},"<{high}")')
-        ws.cell(row=row, column=3, value=f'=IFERROR($B{row}/{total},"")')
-        ws.cell(row=row, column=4,
-                value=f'=IFERROR(AVERAGEIFS({reviews},{price},">={low}",{price},"<{high}"),"")')
+        ws.cell(row=row, column=1, value=low).number_format = MONEY
+        ws.cell(row=row, column=2, value=high).number_format = MONEY
+        ws.cell(row=row, column=3,
+                value=f'=COUNTIFS({price},">="&$A{row},{price},"<"&$B{row})')
+        ws.cell(row=row, column=4, value=f'=IFERROR($C{row}/{total},"")')
         ws.cell(row=row, column=5,
-                value=f'=IFERROR(AVERAGEIFS({rating},{price},">={low}",{price},"<{high}"),"")')
-        ws.cell(row=row, column=3).number_format = PERCENT
-        ws.cell(row=row, column=4).number_format = COUNT
-        ws.cell(row=row, column=5).number_format = RATING
-        style_row(ws, row, 5)
+                value=f'=IFERROR(AVERAGEIFS({reviews},{price},">="&$A{row},'
+                      f'{price},"<"&$B{row}),"")')
+        ws.cell(row=row, column=6,
+                value=f'=IFERROR(AVERAGEIFS({rating},{price},">="&$A{row},'
+                      f'{price},"<"&$B{row}),"")')
+        ws.cell(row=row, column=4).number_format = PERCENT
+        ws.cell(row=row, column=5).number_format = COUNT
+        ws.cell(row=row, column=6).number_format = RATING
+        style_row(ws, row, 6)
         row += 1
 
-    ws.cell(row=row + 1, column=1,
-            value="Границы корзин заданы в config.yaml (analysis.price_buckets).").font = BODY_FONT
+    ws.cell(row=row, column=1, value="Итого").font = Font(name=FONT, size=10, bold=True)
+    ws.cell(row=row, column=3, value=f"=SUM($C$3:$C${row - 1})").font = Font(
+        name=FONT, size=10, bold=True)
+    ws.cell(row=row, column=3).number_format = COUNT
+
+    note = ws.cell(row=row + 2, column=1,
+                   value="Границы корзин можно менять прямо в колонках «От» и «До» — "
+                         "цифры пересчитаются. Значения по умолчанию заданы "
+                         "в config.yaml (analysis.price_buckets).")
+    note.font = Font(name=FONT, size=9, italic=True, color=GREY_RGB)
 
 
 def build_summary(ws, df: pd.DataFrame, last: int, min_reviews: int, collected: str) -> None:
