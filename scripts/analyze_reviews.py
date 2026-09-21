@@ -55,6 +55,28 @@ def load_reviews(path: Path) -> pd.DataFrame:
 
     # в одном поле удобнее искать: WB часто кладёт суть в «минусы», а не в текст
     df["full_text"] = (df["text"] + " " + df["pros"] + " " + df["cons"]).str.lower()
+
+    df = drop_foreign(df)
+    return df
+
+
+def drop_foreign(df: pd.DataFrame) -> pd.DataFrame:
+    """Страховка от чужих отзывов: артикул в отзыве должен совпадать с карточкой.
+
+    Проверяем ещё раз на этапе анализа — вдруг данные собраны старой версией
+    скрипта, которая такие отзывы пропускала.
+    """
+    if "review_nm_id" not in df.columns:
+        print("  ВНИМАНИЕ: в файле нет колонки review_nm_id — он собран старой версией")
+        print("  collect_reviews.py. Удалите data/reviews.csv и соберите отзывы заново.")
+        return df
+
+    known = df["review_nm_id"].astype(str).str.strip() != ""
+    same = df["review_nm_id"].astype(str).str.strip() == df["product_id"].astype(str).str.strip()
+    foreign = known & ~same
+    if foreign.any():
+        print(f"  отброшено чужих отзывов: {int(foreign.sum())}")
+        df = df[~foreign]
     return df
 
 

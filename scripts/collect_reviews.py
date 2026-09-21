@@ -44,11 +44,15 @@ CARD_DETAIL_URLS = [
     "https://u-card.wb.ru/cards/v4/detail",
     "https://u-card.wb.ru/cards/v2/detail",
 ]
+# ВАЖНО: v2 ждёт id карточки-родителя (imt_id), а v1 — артикул (nm_id).
+# Перепутать их нельзя: WB не ругается, а отдаёт отзывы постороннего товара,
+# у которого артикул совпал с нашим imt_id. Поэтому у каждого адреса указано,
+# какой идентификатор подставлять, и ответ дополнительно проверяется.
 FEEDBACK_URLS = [
-    "https://feedbacks1.wb.ru/feedbacks/v2/{imt}",
-    "https://feedbacks2.wb.ru/feedbacks/v2/{imt}",
-    "https://feedbacks1.wb.ru/feedbacks/v1/{imt}",
-    "https://feedbacks2.wb.ru/feedbacks/v1/{imt}",
+    ("https://feedbacks1.wb.ru/feedbacks/v2/{id}", "imt"),
+    ("https://feedbacks2.wb.ru/feedbacks/v2/{id}", "imt"),
+    ("https://feedbacks1.wb.ru/feedbacks/v1/{id}", "nm"),
+    ("https://feedbacks2.wb.ru/feedbacks/v1/{id}", "nm"),
 ]
 
 HEADERS = {
@@ -64,7 +68,9 @@ HEADERS = {
 REVIEW_COLUMNS = [
     "marketplace", "product_id", "imt_id", "brand", "product_title",
     "review_id", "rating", "created_at", "text", "pros", "cons",
-    "color", "size", "useful_votes", "collected_at",
+    "color", "size", "useful_votes",
+    # поля из самого отзыва — по ним видно, к какому товару он относится
+    "review_nm_id", "review_brand", "review_product", "collected_at",
 ]
 
 
@@ -128,17 +134,45 @@ def get_imt_id(session, nm_id: str, dest: int, timeout: float,
     return imt_from_basket(session, nm_id, timeout, hint)
 
 
-def fetch_feedbacks(session, imt_id: str, timeout: float) -> list[dict]:
-    """Скачивает отзывы по imt_id. Пустой список, если ни один адрес не ответил."""
-    for template in FEEDBACK_URLS:
-        url = template.format(imt=imt_id)
+def feedback_belongs(feedback: dict, nm_id: str, imt_id: str) -> bool | None:
+    """Относится ли отзыв к нашему товару.
+
+    True/False — если в отзыве есть данные о товаре, None — если проверить нечем.
+    """
+    details = feedback.get("productDetails")
+    if not isinstance(details, dict):
+        return None
+    for key, expected in (("nmId", nm_id), ("imtId", imt_id)):
+        value = details.get(key)
+        if value and str(value) == str(expected):
+            return True
+    return False
+
+
+def fetch_feedbacks(session, imt_id: str, nm_id: str, timeout: float) -> list[dict]:
+    """Скачивает отзывы нашего товара. Чужие ответы отбрасываются целиком."""
+    for template, id_kind in FEEDBACK_URLS:
+        url = template.format(id=imt_id if id_kind == "imt" else nm_id)
         try:
             response = session.get(url, headers=HEADERS, timeout=timeout)
             if response.status_code != 200:
                 continue
-            payload = response.json() or {}
-            feedbacks = payload.get("feedbacks")
-            if feedbacks:
+            feedbacks = (response.json() or {}).get("feedbacks")
+            if not feedbacks:
+                continue
+
+            checks = [feedback_belongs(f, nm_id, imt_id) for f in feedbacks]
+            ours = [f for f, ok in zip(feedbacks, checks) if ok]
+            if ours:
+                if len(ours) < len(feedbacks):
+                    print(f"    отброшено чужих отзывов: {len(feedbacks) - len(ours)}")
+                return ours
+            if any(ok is False for ok in checks):
+                # ответ есть, но он про другой товар — адрес не подходит
+                print(f"    {url.rsplit('/', 2)[-2]} вернул отзывы другого товара, пропускаю")
+                continue
+            # проверить нечем (старый формат ответа) — доверяем только v2 по imt_id
+            if id_kind == "imt":
                 return feedbacks
         except Exception:
             continue
@@ -151,6 +185,7 @@ def normalize(feedback: dict, product: dict, imt_id: str, collected_at: str) -> 
     Имя автора отзыва намеренно не сохраняем: для анализа оно не нужно.
     """
     votes = feedback.get("votes")
+    details = feedback.get("productDetails") if isinstance(feedback.get("productDetails"), dict) else {}
     return {
         "marketplace": "wildberries",
         "product_id": product.get("product_id", ""),
@@ -166,6 +201,9 @@ def normalize(feedback: dict, product: dict, imt_id: str, collected_at: str) -> 
         "color": (feedback.get("color") or "").strip(),
         "size": (feedback.get("size") or "").strip(),
         "useful_votes": votes.get("pluses", "") if isinstance(votes, dict) else "",
+        "review_nm_id": details.get("nmId", ""),
+        "review_brand": (details.get("brandName") or "").strip(),
+        "review_product": (details.get("productName") or "").strip(),
         "collected_at": collected_at,
     }
 
@@ -249,7 +287,7 @@ def main() -> None:
             time.sleep(delay)
             continue
 
-        feedbacks = fetch_feedbacks(session, imt_id, timeout)
+        feedbacks = fetch_feedbacks(session, imt_id, nm, timeout)
         if not feedbacks:
             print(f"    отзывов не получено (imt {imt_id})")
             time.sleep(delay)
