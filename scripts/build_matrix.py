@@ -31,7 +31,7 @@ from openpyxl.worksheet.formula import ArrayFormula
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import load_config, resolve  # noqa: E402
-from export_excel import detect_pieces, detect_size  # noqa: E402
+from export_excel import detect_kind, detect_pieces, detect_size  # noqa: E402
 
 FONT = "Arial"
 HEADER_FILL = PatternFill("solid", fgColor="2F4858")
@@ -89,8 +89,12 @@ def build_market(ws, df: pd.DataFrame) -> int:
     """Лист «Рынок»: выдача WB, от неё считается бенчмарк."""
     headers = [("Запрос", 24), ("Артикул", 13), ("Название", 50), ("Бренд", 16),
                ("Цена", 11), ("Рейтинг", 9), ("Отзывов", 10), ("Размер", 11),
-               ("Штук", 8), ("Цена за шт", 12)]
+               ("Штук", 8), ("Цена за шт", 12), ("Тип", 12)]
     write_header(ws, headers)
+
+    # один товар попадает в выдачу по нескольким запросам: без этого
+    # он считался бы несколько раз и перекашивал медиану
+    df = df.drop_duplicates("product_id")
 
     for i, (_, item) in enumerate(df.iterrows(), start=2):
         title = str(item.get("title", ""))
@@ -108,12 +112,15 @@ def build_market(ws, df: pd.DataFrame) -> int:
         per_piece.font = BODY
         per_piece.border = BORDER
         per_piece.number_format = MONEY
+        kind = ws.cell(row=i, column=11, value=detect_kind(title))
+        kind.font = BODY
+        kind.border = BORDER
         ws.cell(row=i, column=5).number_format = MONEY
         ws.cell(row=i, column=7).number_format = COUNT
 
     last = len(df) + 1
     ws.freeze_panes = "A2"
-    ws.auto_filter.ref = f"A1:J{last}"
+    ws.auto_filter.ref = f"A1:K{last}"
     return last
 
 
@@ -130,6 +137,7 @@ def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
     reviews_rng = f"Рынок!$G$2:$G${market_last}"
     pieces_rng = f"Рынок!$I$2:$I${market_last}"
     per_piece_rng = f"Рынок!$J$2:$J${market_last}"
+    kind_rng = f"Рынок!$K$2:$K${market_last}"
 
     row = 4
     for _, item in matrix.iterrows():
@@ -159,14 +167,18 @@ def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
         pieces = max(int(float(item.get("pieces", 1) or 1)), 1)
         pack_cond = f"({pieces_rng}=1)" if pieces == 1 else f"({pieces_rng}>1)"
         pack_criteria = "1" if pieces == 1 else ">1"
-        mask = f'({size_rng}="{bench}")*{pack_cond}'
+        # тип товара тоже важен: в размере 50х80 полно ковриков, и без этого
+        # фильтра они попадали в медиану полотенец
+        kind = str(item.get("benchmark_kind", "") or "Полотенце").strip()
+        mask = f'({size_rng}="{bench}")*{pack_cond}*({kind_rng}="{kind}")'
 
         ws.cell(row=row, column=11, value=pieces).font = BODY
         ws.cell(row=row, column=11).number_format = COUNT
 
         if bench:
             ws.cell(row=row, column=12,
-                    value=f'=COUNTIFS({size_rng},"{bench}",{pieces_rng},"{pack_criteria}")')
+                    value=f'=COUNTIFS({size_rng},"{bench}",{pieces_rng},"{pack_criteria}",'
+                          f'{kind_rng},"{kind}")')
             for col, formula in (
                 (13, f'=IFERROR(MEDIAN(IF({mask},{price_rng})),"нет данных")'),
                 (14, f'=IFERROR(QUARTILE(IF({mask},{price_rng}),1),"нет данных")'),
@@ -177,7 +189,7 @@ def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
                 ws.cell(row=row, column=col, value=ArrayFormula(f"{letter}{row}", formula))
             ws.cell(row=row, column=17,
                     value=f'=IFERROR(AVERAGEIFS({reviews_rng},{size_rng},"{bench}",'
-                          f'{pieces_rng},"{pack_criteria}"),"нет данных")')
+                          f'{pieces_rng},"{pack_criteria}",{kind_rng},"{kind}"),"нет данных")')
         else:
             for col in range(12, 18):
                 ws.cell(row=row, column=col, value="собрать отдельно")
@@ -217,7 +229,8 @@ def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
 
     ws.cell(row=row + 2, column=1,
             value="Жёлтые ячейки — ваши значения. Бенчмарк берёт только сопоставимые "
-                  "карточки: одиночный товар сравнивается с одиночными, набор — с наборами. "
+                  "карточки: тот же тип товара, тот же размер, та же комплектность — "
+                  "одиночный товар с одиночными, набор с наборами. "
                   "Колонки 25% и 75% — коридор, где лежит основная масса; «за 1 шт» "
                   "приводит наборы разной комплектности к одной базе.").font = NOTE
     ws.cell(row=row + 3, column=1,

@@ -62,7 +62,12 @@ STOPWORDS = {
 }
 WORD_RE = re.compile(r"[а-яёa-z0-9]+", re.IGNORECASE)
 SIZE_RE = re.compile(r"(\d{2,3})\s*[хx*]\s*(\d{2,3})", re.IGNORECASE)
+# «набор 2 шт», «50х80 см-2шт»
 PIECES_RE = re.compile(r"(\d{1,2})\s*(?:шт|штук|предмет)", re.IGNORECASE)
+# «50х80- 2, банные 70х130- 2»: количество указано сразу после размера, без «шт»
+SIZE_QTY_RE = re.compile(
+    r"\d{2,3}\s*[хx*]\s*\d{2,3}\s*(?:см)?\s*[-–—]\s*(\d{1,2})(?!\d)", re.IGNORECASE)
+SET_WORDS = ("набор", "комплект", "компл.")
 
 
 # --------------------------------------------------------------------------- #
@@ -105,18 +110,40 @@ def detect_size(title: str) -> str:
 
 
 def detect_pieces(title: str) -> int:
-    """Сколько предметов в товаре: «набор 4 шт» -> 4, обычное полотенце -> 1.
+    """Сколько предметов в товаре. 0 — набор, у которого количество не указано.
 
-    Нужно, чтобы не сравнивать цену набора из шести штук с ценой одного
-    полотенца: без этого медиана рынка смешивает несопоставимые товары.
+    Нужно, чтобы не сравнивать цену набора с ценой одного полотенца. Ноль
+    возвращается осознанно: такие карточки лучше исключить из бенчмарка,
+    чем гадать и портить медиану.
     """
     text = str(title).lower()
-    match = PIECES_RE.search(text)
-    if match:
-        return min(max(int(match.group(1)), 1), 24)
+
+    # «50х80- 2, банные 70х130- 2» — складываем количество по всем размерам
+    total = sum(int(n) for n in SIZE_QTY_RE.findall(text))
+    if not total:
+        total = sum(int(n) for n in PIECES_RE.findall(text))
+    if total:
+        return min(total, 24)
+
     if "пара" in text:
         return 2
+    if any(word in text for word in SET_WORDS):
+        return 0  # набор без количества
     return 1
+
+
+def detect_kind(title: str) -> str:
+    """Что это за товар: полотенца, коврики и халаты нельзя мерить одной меркой."""
+    text = str(title).lower()
+    if "коврик" in text:
+        return "Коврик"
+    if "халат" in text:
+        return "Халат"
+    if any(word in text for word in ("простын", "пододеяльник", "наволоч", "скатерт")):
+        return "Прочее"
+    if any(word in text for word in ("полотен", "салфет")):
+        return "Полотенце"
+    return "Прочее"
 
 
 def top_words(titles, limit: int = 4) -> str:
