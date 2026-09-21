@@ -145,8 +145,12 @@ def normalize(item: dict, query: str, rank: int, collected_at: str) -> dict:
     }
 
 
-def fetch_query(session, query: str, wb_cfg: dict) -> dict | None:
-    """Пробует получить выдачу по запросу. Возвращает сырой JSON или None."""
+PAGE_SIZE = 100   # столько карточек WB отдаёт на одной странице выдачи
+MAX_PAGES = 10    # предохранитель: дальше первой тысячи выдача уже нерелевантна
+
+
+def fetch_query(session, query: str, wb_cfg: dict, page: int = 1) -> dict | None:
+    """Пробует получить одну страницу выдачи. Возвращает сырой JSON или None."""
     params = {
         "ab_testing": "false",
         "appType": 1,
@@ -159,7 +163,7 @@ def fetch_query(session, query: str, wb_cfg: dict) -> dict | None:
         "sort": "popular",
         "spp": 30,
         "suppressSpellcheck": "false",
-        "page": 1,
+        "page": page,
     }
     retries = int(wb_cfg.get("retries", 3))
     timeout = float(wb_cfg.get("timeout_sec", 20))
@@ -188,6 +192,35 @@ def fetch_query(session, query: str, wb_cfg: dict) -> dict | None:
     return None
 
 
+def fetch_products(session, query: str, wb_cfg: dict, top_n: int,
+                   delay: float) -> tuple[list[dict], list[dict]]:
+    """Собирает top_n карточек, перелистывая страницы выдачи.
+
+    На одной странице WB отдаёт 100 карточек. Пока нужно меньше — хватает
+    первой страницы; для большего объёма листаем дальше, пока выдача не
+    закончится или не упрёмся в MAX_PAGES.
+    """
+    products: list[dict] = []
+    raw_pages: list[dict] = []
+
+    for page in range(1, MAX_PAGES + 1):
+        payload = fetch_query(session, query, wb_cfg, page)
+        if payload is None:
+            break
+        items = extract_products(payload)
+        if not items:
+            break
+
+        raw_pages.append(payload)
+        products.extend(items)
+        if len(products) >= top_n or len(items) < PAGE_SIZE:
+            break  # набрали сколько нужно или выдача кончилась
+        print(f"    страница {page} собрана, всего {len(products)}, листаю дальше")
+        time.sleep(delay)
+
+    return products[:top_n], raw_pages
+
+
 def collect_live(queries: list[str], wb_cfg: dict) -> tuple[list[dict], dict]:
     """Собирает карточки по всем запросам. Возвращает (строки, сырые ответы)."""
     top_n = int(wb_cfg.get("top_n", 20))
@@ -205,8 +238,8 @@ def collect_live(queries: list[str], wb_cfg: dict) -> tuple[list[dict], dict]:
 
     for i, query in enumerate(queries, start=1):
         print(f"[{i}/{len(queries)}] {query}")
-        payload = fetch_query(session, query, wb_cfg)
-        if payload is None:
+        products, raw_pages = fetch_products(session, query, wb_cfg, top_n, delay)
+        if not products:
             fails_in_row += 1
             print("    -> не удалось получить данные, идём дальше")
             if not rows and fails_in_row >= max_fails_in_row:
@@ -215,8 +248,8 @@ def collect_live(queries: list[str], wb_cfg: dict) -> tuple[list[dict], dict]:
             continue
         fails_in_row = 0
 
-        products = extract_products(payload)[:top_n]
-        raw[query] = {"collected_at": collected_at, "products": products}
+        raw[query] = {"collected_at": collected_at, "pages": len(raw_pages),
+                      "products": products}
         for rank, item in enumerate(products, start=1):
             try:
                 rows.append(normalize(item, query, rank, collected_at))

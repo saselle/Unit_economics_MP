@@ -76,7 +76,7 @@ python scripts/export_excel.py      # добавит листы с отзыва�
 
 ```bash
 python scripts/collect_wb.py --sample     # не ходить в сеть, работать на мок-данных
-python scripts/collect_wb.py --top-n 30   # брать по 30 карточек вместо 20
+python scripts/collect_wb.py --top-n 100  # брать по 100 карточек вместо 20
 ```
 
 ## Где смотреть результаты
@@ -113,7 +113,9 @@ python scripts/collect_wb.py --top-n 30   # брать по 30 карточек 
 
 ## Настройки (`config.yaml`)
 
-- `marketplaces.wildberries.top_n` — сколько карточек брать по запросу;
+- `marketplaces.wildberries.top_n` — сколько карточек брать по запросу. Это верх
+  выдачи по сортировке «популярные» — то, что видит покупатель на первых экранах.
+  До 100 укладывается в одну страницу, больше — скрипт листает выдачу дальше;
 - `marketplaces.wildberries.dest` — регион доставки (влияет на цены);
 - `marketplaces.wildberries.request_delay_sec` — пауза между запросами;
 - `analysis.min_reviews_for_strong_card` — с какого числа отзывов карточка считается «сильной»;
