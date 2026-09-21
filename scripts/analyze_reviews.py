@@ -22,7 +22,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import load_config, resolve  # noqa: E402
+from common import load_config, resolve, save_document  # noqa: E402
 
 THEME_COLUMNS = ["тема", "тип", "упоминаний", "доля_отзывов_%", "средний_рейтинг",
                  "негативных_%", "пример"]
@@ -239,9 +239,9 @@ def build_summary(df: pd.DataFrame, themes_df: pd.DataFrame, products_df: pd.Dat
 
 
 def save(df: pd.DataFrame, path: Path, columns: list[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    (df if not df.empty else pd.DataFrame(columns=columns)).to_csv(
-        path, index=False, encoding="utf-8-sig")
+    out = df if not df.empty else pd.DataFrame(columns=columns)
+    path = save_document(
+        path, lambda p: out.to_csv(p, index=False, encoding="utf-8-sig"))
     print(f"  {path}  ({len(df)} строк)")
 
 
@@ -271,8 +271,9 @@ def main() -> None:
     save(themes_df, reports_dir / "review_themes.csv", THEME_COLUMNS)
     save(products_df, reports_dir / "review_by_product.csv", PRODUCT_COLUMNS)
 
-    summary_path = reports_dir / "reviews_summary.md"
-    summary_path.write_text(build_summary(df, themes_df, products_df), encoding="utf-8")
+    summary = build_summary(df, themes_df, products_df)
+    summary_path = save_document(reports_dir / "reviews_summary.md",
+                                 lambda p: p.write_text(summary, encoding="utf-8"))
     print(f"  {summary_path}")
 
 

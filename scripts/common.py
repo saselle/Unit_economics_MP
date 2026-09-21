@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import csv
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -99,6 +100,39 @@ def read_queries(path_str: str) -> list[str]:
 
 def ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def save_document(path: Path, saver) -> Path:
+    """Сохраняет файл, даже если он сейчас открыт в Word или Excel.
+
+    Windows не даёт перезаписать открытый файл — вместо отчёта скрипт падал
+    с PermissionError. Теперь в такой ситуации результат кладётся рядом,
+    с пометкой в имени, и пользователь видит понятное объяснение, а не трейсбек.
+
+    `saver` — функция, которая принимает путь и пишет туда файл.
+    Возвращает путь, по которому файл в итоге сохранён.
+    """
+    ensure_parent(path)
+    candidates = [
+        path,
+        path.with_name(f"{path.stem} (новая версия){path.suffix}"),
+        path.with_name(f"{path.stem} {datetime.now():%Y-%m-%d %H-%M}{path.suffix}"),
+    ]
+
+    for i, candidate in enumerate(candidates):
+        try:
+            saver(candidate)
+        except PermissionError:
+            continue
+        if i:
+            print(f"   ! {path.name} открыт в другой программе — сохранил как "
+                  f"«{candidate.name}». Закройте файл и запустите снова, "
+                  f"чтобы обновить оригинал.")
+        return candidate
+
+    raise PermissionError(
+        f"Не удалось сохранить {path.name}: файл открыт в другой программе. "
+        f"Закройте Word/Excel и запустите скрипт заново.")
 
 
 def make_session() -> tuple[object, str]:

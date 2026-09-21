@@ -84,6 +84,7 @@ def report_files(cfg: dict) -> list[tuple[str, Path]]:
         ("Excel со всеми срезами", reports_dir / "marketplace_report.xlsx"),
         ("Word с выводами", reports_dir / "Отчёт_по_рынку.docx"),
         ("Матрица SKU", reports_dir / "Матрица_SKU.xlsx"),
+        ("ТЗ поставщику", reports_dir / "ТЗ_поставщику.docx"),
         ("Выводы под запуск", reports_dir / "launch_recommendations.md"),
         ("Что говорят покупатели", reports_dir / "reviews_summary.md"),
     ]
@@ -118,6 +119,7 @@ def main() -> None:
         ("Выгрузка в Excel", "export_excel.py", []),
         ("Выгрузка в Word", "export_docx.py", []),
         ("Матрица SKU и заготовка юнитки", "build_matrix.py", []),
+        ("ТЗ поставщику по позициям", "build_specs.py", []),
     ]
 
     failed = []

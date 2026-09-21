@@ -30,7 +30,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.formula import ArrayFormula
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import load_config, resolve  # noqa: E402
+from common import load_config, resolve, save_document  # noqa: E402
 from export_excel import detect_kind, detect_pieces, detect_size  # noqa: E402
 
 FONT = "Arial"
@@ -419,8 +419,7 @@ def main() -> None:
     build_colors(ws_colors, reviews)
     build_unit(ws_unit, matrix, matrix_last)
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    wb.save(out_path)
+    out_path = save_document(out_path, wb.save)
     print(f"Готово: {out_path}")
     print(f"  SKU в матрице: {len(matrix)}")
     print(f"  Карточек рынка для бенчмарка: {max(market_last - 1, 0)}")

@@ -19,7 +19,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import load_config, resolve  # noqa: E402
+from common import load_config, resolve, save_document  # noqa: E402
 
 QUERY_COLUMNS = [
     "query", "product_count", "avg_price", "median_price", "min_price", "max_price",
@@ -171,10 +171,10 @@ def analyze_buckets(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 
 
 def save(df: pd.DataFrame, path: Path, columns: list[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     if df.empty:
         df = pd.DataFrame(columns=columns)
-    df.to_csv(path, index=False, encoding="utf-8-sig")
+    path = save_document(
+        path, lambda p: df.to_csv(p, index=False, encoding="utf-8-sig"))
     print(f"  {path}  ({len(df)} строк)")
 
 

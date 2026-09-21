@@ -18,7 +18,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import load_config, resolve  # noqa: E402
+from common import load_config, resolve, save_document  # noqa: E402
 
 
 SAMPLE_WARNING = (
@@ -303,8 +303,9 @@ def main() -> None:
         note = ("# Данных нет\n\nФайл `data/products.csv` пуст или отсутствует.\n"
                 "Запустите `python scripts/collect_wb.py`, затем "
                 "`python scripts/analyze_products.py`.\n")
-        (reports_dir / "summary.md").write_text(note, encoding="utf-8")
-        (reports_dir / "launch_recommendations.md").write_text(note, encoding="utf-8")
+        for name in ("summary.md", "launch_recommendations.md"):
+            save_document(reports_dir / name,
+                          lambda p: p.write_text(note, encoding="utf-8"))
         print("Данных нет — отчёты созданы с пояснением.")
         return
 
@@ -313,10 +314,13 @@ def main() -> None:
     if banner:
         print("Внимание: данные мок-овые, в отчёты добавлена пометка.")
 
-    (reports_dir / "summary.md").write_text(
-        banner + build_summary(products, queries_df, buckets_df, cfg), encoding="utf-8")
-    (reports_dir / "launch_recommendations.md").write_text(
-        banner + build_recommendations(products, queries_df, formats_df, cfg), encoding="utf-8")
+    summary = banner + build_summary(products, queries_df, buckets_df, cfg)
+    recommendations = banner + build_recommendations(products, queries_df, formats_df, cfg)
+
+    save_document(reports_dir / "summary.md",
+                  lambda p: p.write_text(summary, encoding="utf-8"))
+    save_document(reports_dir / "launch_recommendations.md",
+                  lambda p: p.write_text(recommendations, encoding="utf-8"))
 
     print("Готово:")
     print(f"  {reports_dir / 'summary.md'}")

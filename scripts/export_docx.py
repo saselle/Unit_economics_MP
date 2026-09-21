@@ -21,7 +21,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt, RGBColor
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import load_config, resolve  # noqa: E402
+from common import load_config, resolve, save_document  # noqa: E402
 
 FONT = "Arial"
 DARK = RGBColor(0x2F, 0x48, 0x58)
@@ -187,8 +187,7 @@ def main() -> None:
         doc.add_heading("Приложение: сводка по собранным данным", level=1)
         render_markdown(doc, summary.read_text(encoding="utf-8"), skip_first_heading=True)
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    doc.save(out_path)
+    out_path = save_document(out_path, doc.save)
     print(f"Готово: {out_path}")
 
 

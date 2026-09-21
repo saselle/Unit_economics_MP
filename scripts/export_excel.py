@@ -28,7 +28,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import load_config, resolve  # noqa: E402
+from common import load_config, resolve, save_document  # noqa: E402
 
 FONT = "Arial"
 HEADER_FILL = PatternFill("solid", fgColor="2F4858")
@@ -504,8 +504,7 @@ def main() -> None:
 
     review_sheets = add_review_sheets(wb, reports_dir)
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    wb.save(out_path)
+    out_path = save_document(out_path, wb.save)
     print(f"Готово: {out_path}")
     if review_sheets:
         print("Добавлены листы с отзывами: " + ", ".join(f"«{s}»" for s in review_sheets))
