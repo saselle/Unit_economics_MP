@@ -41,7 +41,11 @@ from common import (  # noqa: E402
 MARKETPLACE = "wildberries"
 
 # Несколько версий endpoint: WB периодически переключает версии, пробуем по очереди.
+# Если все отдают 403/404 — запустите scripts/check_wb.py, он подберёт рабочий вариант.
 SEARCH_ENDPOINTS = [
+    "https://search.wb.ru/exactmatch/ru/common/v18/search",
+    "https://search.wb.ru/exactmatch/ru/common/v17/search",
+    "https://search.wb.ru/exactmatch/ru/common/v14/search",
     "https://search.wb.ru/exactmatch/ru/common/v13/search",
     "https://search.wb.ru/exactmatch/ru/common/v5/search",
     "https://search.wb.ru/exactmatch/ru/common/v4/search",
@@ -54,7 +58,6 @@ HEADERS = {
     ),
     "Accept": "*/*",
     "Accept-Language": "ru-RU,ru;q=0.9",
-    "Origin": "https://www.wildberries.ru",
     "Referer": "https://www.wildberries.ru/",
 }
 
@@ -168,10 +171,12 @@ def normalize(item: dict, query: str, rank: int, collected_at: str) -> dict:
 def fetch_query(session: requests.Session, query: str, wb_cfg: dict) -> dict | None:
     """Пробует получить выдачу по запросу. Возвращает сырой JSON или None."""
     params = {
-        "ab_testid": "false",
+        "ab_testing": "false",
         "appType": 1,
         "curr": "rub",
         "dest": wb_cfg.get("dest", -1257786),
+        "hide_dtype": 13,
+        "lang": "ru",
         "query": query,
         "resultset": "catalog",
         "sort": "popular",
