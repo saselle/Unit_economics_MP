@@ -62,6 +62,7 @@ STOPWORDS = {
 }
 WORD_RE = re.compile(r"[а-яёa-z0-9]+", re.IGNORECASE)
 SIZE_RE = re.compile(r"(\d{2,3})\s*[хx*]\s*(\d{2,3})", re.IGNORECASE)
+PIECES_RE = re.compile(r"(\d{1,2})\s*(?:шт|штук|предмет)", re.IGNORECASE)
 
 
 # --------------------------------------------------------------------------- #
@@ -101,6 +102,21 @@ def detect_purpose(title: str) -> str:
 def detect_size(title: str) -> str:
     match = SIZE_RE.search(title)
     return f"{match.group(1)}х{match.group(2)}" if match else ""
+
+
+def detect_pieces(title: str) -> int:
+    """Сколько предметов в товаре: «набор 4 шт» -> 4, обычное полотенце -> 1.
+
+    Нужно, чтобы не сравнивать цену набора из шести штук с ценой одного
+    полотенца: без этого медиана рынка смешивает несопоставимые товары.
+    """
+    text = str(title).lower()
+    match = PIECES_RE.search(text)
+    if match:
+        return min(max(int(match.group(1)), 1), 24)
+    if "пара" in text:
+        return 2
+    return 1
 
 
 def top_words(titles, limit: int = 4) -> str:

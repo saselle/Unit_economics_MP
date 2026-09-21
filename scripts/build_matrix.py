@@ -31,7 +31,7 @@ from openpyxl.worksheet.formula import ArrayFormula
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import load_config, resolve  # noqa: E402
-from export_excel import detect_size  # noqa: E402
+from export_excel import detect_pieces, detect_size  # noqa: E402
 
 FONT = "Arial"
 HEADER_FILL = PatternFill("solid", fgColor="2F4858")
@@ -56,9 +56,13 @@ MATRIX_HEADERS = [
     ("Код SKU", 14), ("Категория", 20), ("Размер", 22), ("Комплектность", 15),
     ("Цвета", 30), ("Позиций", 9), ("Плотность, г/м²", 13), ("Состав", 24),
     ("Впитываемость", 13), ("Обработка", 15),
-    ("Рынок: карточек", 12), ("Рынок: медиана", 13), ("Рынок: 25%", 11),
-    ("Рынок: 75%", 11), ("Рынок: ср. отзывов", 13),
-    ("Таргет, ₽", 11), ("К медиане", 11), ("Роль SKU", 26), ("УТП для карточки", 46),
+    ("Предметов в SKU", 10),
+    ("Рынок: сопоставимых карточек", 13), ("Рынок: медиана", 13),
+    ("Рынок: 25%", 11), ("Рынок: 75%", 11), ("Рынок: медиана за 1 шт", 14),
+    ("Рынок: ср. отзывов", 12),
+    ("Таргет, ₽", 11), ("Таргет за 1 шт", 12),
+    ("К медиане", 11), ("К медиане за шт", 13),
+    ("Роль SKU", 26), ("УТП для карточки", 46),
 ]
 
 UNIT_HEADERS = [
@@ -84,25 +88,32 @@ def write_header(ws, headers: list[tuple[str, int]], row: int = 1) -> None:
 def build_market(ws, df: pd.DataFrame) -> int:
     """Лист «Рынок»: выдача WB, от неё считается бенчмарк."""
     headers = [("Запрос", 24), ("Артикул", 13), ("Название", 50), ("Бренд", 16),
-               ("Цена", 11), ("Рейтинг", 9), ("Отзывов", 10), ("Размер", 11)]
+               ("Цена", 11), ("Рейтинг", 9), ("Отзывов", 10), ("Размер", 11),
+               ("Штук", 8), ("Цена за шт", 12)]
     write_header(ws, headers)
 
     for i, (_, item) in enumerate(df.iterrows(), start=2):
         title = str(item.get("title", ""))
+        pieces = detect_pieces(title)
         values = [item.get("query", ""), item.get("product_id", ""), title,
                   item.get("brand", ""), item.get("price"), item.get("rating"),
-                  item.get("review_count"), detect_size(title)]
+                  item.get("review_count"), detect_size(title), pieces]
         for j, value in enumerate(values, start=1):
             cell = ws.cell(row=i, column=j)
             cell.value = None if (isinstance(value, float) and pd.isna(value)) else value
             cell.font = BODY
             cell.border = BORDER
+        # цена за штуку — формулой, чтобы пересчитывалась при правке цены
+        per_piece = ws.cell(row=i, column=10, value=f"=IFERROR($E{i}/$I{i},\"\")")
+        per_piece.font = BODY
+        per_piece.border = BORDER
+        per_piece.number_format = MONEY
         ws.cell(row=i, column=5).number_format = MONEY
         ws.cell(row=i, column=7).number_format = COUNT
 
     last = len(df) + 1
     ws.freeze_panes = "A2"
-    ws.auto_filter.ref = f"A1:H{last}"
+    ws.auto_filter.ref = f"A1:J{last}"
     return last
 
 
@@ -117,6 +128,8 @@ def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
     size_rng = f"Рынок!$H$2:$H${market_last}"
     price_rng = f"Рынок!$E$2:$E${market_last}"
     reviews_rng = f"Рынок!$G$2:$G${market_last}"
+    pieces_rng = f"Рынок!$I$2:$I${market_last}"
+    per_piece_rng = f"Рынок!$J$2:$J${market_last}"
 
     row = 4
     for _, item in matrix.iterrows():
@@ -140,44 +153,55 @@ def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
             cell.border = BORDER
             cell.alignment = Alignment(wrap_text=j in (5, 8, 3), vertical="top")
 
-        # Бенчмарк по размеру. Медиана и перцентили считаются формулами массива
-        # (MEDIAN/QUARTILE с условием): обычных функций «медиана по условию» в Excel нет.
-        # Медиана честнее средней: в выдаче сидят премиум-выбросы по 4 000 ₽.
-        # Пустой benchmark_size — товар, у которого размера в названии нет (халаты),
-        # там формула не нужна: COUNTIF посчитал бы пустые ячейки листа «Рынок».
+        # Бенчмарк сравнивает сопоставимое: одиночный товар — с одиночными,
+        # набор — с наборами. Без этого медиана 50х80 мешала одиночные по 1416 ₽
+        # с наборами по 501 ₽ и не значила ничего.
+        pieces = max(int(float(item.get("pieces", 1) or 1)), 1)
+        pack_cond = f"({pieces_rng}=1)" if pieces == 1 else f"({pieces_rng}>1)"
+        pack_criteria = "1" if pieces == 1 else ">1"
+        mask = f'({size_rng}="{bench}")*{pack_cond}'
+
+        ws.cell(row=row, column=11, value=pieces).font = BODY
+        ws.cell(row=row, column=11).number_format = COUNT
+
         if bench:
-            ws.cell(row=row, column=11, value=f'=COUNTIF({size_rng},"{bench}")')
+            ws.cell(row=row, column=12,
+                    value=f'=COUNTIFS({size_rng},"{bench}",{pieces_rng},"{pack_criteria}")')
             for col, formula in (
-                (12, f'=IFERROR(MEDIAN(IF({size_rng}="{bench}",{price_rng})),"нет данных")'),
-                (13, f'=IFERROR(QUARTILE(IF({size_rng}="{bench}",{price_rng}),1),"нет данных")'),
-                (14, f'=IFERROR(QUARTILE(IF({size_rng}="{bench}",{price_rng}),3),"нет данных")'),
+                (13, f'=IFERROR(MEDIAN(IF({mask},{price_rng})),"нет данных")'),
+                (14, f'=IFERROR(QUARTILE(IF({mask},{price_rng}),1),"нет данных")'),
+                (15, f'=IFERROR(QUARTILE(IF({mask},{price_rng}),3),"нет данных")'),
+                (16, f'=IFERROR(MEDIAN(IF({mask},{per_piece_rng})),"нет данных")'),
             ):
                 letter = get_column_letter(col)
-                ws.cell(row=row, column=col,
-                        value=ArrayFormula(f"{letter}{row}", formula))
-            ws.cell(row=row, column=15,
-                    value=f'=IFERROR(AVERAGEIFS({reviews_rng},{size_rng},"{bench}"),"нет данных")')
+                ws.cell(row=row, column=col, value=ArrayFormula(f"{letter}{row}", formula))
+            ws.cell(row=row, column=17,
+                    value=f'=IFERROR(AVERAGEIFS({reviews_rng},{size_rng},"{bench}",'
+                          f'{pieces_rng},"{pack_criteria}"),"нет данных")')
         else:
-            for col in (11, 12, 13, 14, 15):
+            for col in range(12, 18):
                 ws.cell(row=row, column=col, value="собрать отдельно")
 
-        target = ws.cell(row=row, column=16, value=float(item.get("target_price", 0) or 0))
+        target = ws.cell(row=row, column=18, value=float(item.get("target_price", 0) or 0))
         target.font = INPUT_FONT
         target.fill = INPUT_FILL
-        ws.cell(row=row, column=17, value=f'=IFERROR($P{row}/$L{row}-1,"—")')
+        ws.cell(row=row, column=19, value=f'=IFERROR($R{row}/$K{row},"")')
+        ws.cell(row=row, column=20, value=f'=IFERROR($R{row}/$M{row}-1,"—")')
+        ws.cell(row=row, column=21, value=f'=IFERROR($S{row}/$P{row}-1,"—")')
 
-        for col in (11, 12, 13, 14, 15, 16, 17):
+        for col in range(12, 22):
             cell = ws.cell(row=row, column=col)
             cell.border = BORDER
-            if col != 16:
+            if col != 18:
                 cell.font = BODY
-        ws.cell(row=row, column=11).number_format = COUNT
-        for col in (12, 13, 14, 16):
+        ws.cell(row=row, column=12).number_format = COUNT
+        for col in (13, 14, 15, 16, 18, 19):
             ws.cell(row=row, column=col).number_format = MONEY
-        ws.cell(row=row, column=15).number_format = COUNT
-        ws.cell(row=row, column=17).number_format = PERCENT
+        ws.cell(row=row, column=17).number_format = COUNT
+        for col in (20, 21):
+            ws.cell(row=row, column=col).number_format = PERCENT
 
-        for col, value in ((18, item.get("role", "")), (19, item.get("usp", ""))):
+        for col, value in ((22, item.get("role", "")), (23, item.get("usp", ""))):
             cell = ws.cell(row=row, column=col, value=value)
             cell.font = BODY
             cell.border = BORDER
@@ -187,14 +211,15 @@ def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
     last = row - 1
     ws.cell(row=row, column=1, value="Итого").font = BOLD
     ws.cell(row=row, column=6, value=f"=SUM($F$4:$F${last})").font = BOLD
-    ws.cell(row=row, column=16, value=f"=AVERAGE($P$4:$P${last})").font = BOLD
-    ws.cell(row=row, column=16).number_format = MONEY
+    ws.cell(row=row, column=18, value=f"=AVERAGE($R$4:$R${last})").font = BOLD
+    ws.cell(row=row, column=18).number_format = MONEY
     ws.cell(row=row, column=1).fill = CALC_FILL
 
     ws.cell(row=row + 2, column=1,
-            value="Жёлтые ячейки — ваши значения. «К медиане» = насколько таргет выше "
-                  "медианной цены такого размера в выдаче. Колонки 25% и 75% — "
-                  "ценовой коридор, в котором лежит основная масса карточек.").font = NOTE
+            value="Жёлтые ячейки — ваши значения. Бенчмарк берёт только сопоставимые "
+                  "карточки: одиночный товар сравнивается с одиночными, набор — с наборами. "
+                  "Колонки 25% и 75% — коридор, где лежит основная масса; «за 1 шт» "
+                  "приводит наборы разной комплектности к одной базе.").font = NOTE
     ws.cell(row=row + 3, column=1,
             value="«нет данных» в бенчмарке означает, что размер не попал в сбор: "
                   "запустите анализ заново — запросы по коврикам и салфеткам уже добавлены."
@@ -277,7 +302,7 @@ def build_unit(ws, matrix: pd.DataFrame, matrix_last: int) -> None:
     for i, (_, item) in enumerate(matrix.iterrows()):
         matrix_row = 4 + i
         ws.cell(row=row, column=1, value=f"=Матрица!$A${matrix_row}").font = BODY
-        ws.cell(row=row, column=2, value=f"=Матрица!$P${matrix_row}").font = BODY
+        ws.cell(row=row, column=2, value=f"=Матрица!$R${matrix_row}").font = BODY
         ws.cell(row=row, column=2).number_format = MONEY
 
         for col in (3, 4, 5):  # закупка, доставка, упаковка — вводит пользователь
