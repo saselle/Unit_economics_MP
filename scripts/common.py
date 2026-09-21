@@ -9,7 +9,15 @@ import csv
 import sys
 from pathlib import Path
 
+import requests
 import yaml
+
+try:
+    # curl_cffi повторяет TLS-отпечаток настоящего Chrome. Wildberries отдаёт 403
+    # обычному requests именно из-за отпечатка, поэтому используем её, если стоит.
+    from curl_cffi import requests as curl_requests
+except ImportError:
+    curl_requests = None
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -91,3 +99,14 @@ def read_queries(path_str: str) -> list[str]:
 
 def ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def make_session() -> tuple[object, str]:
+    """Возвращает HTTP-сессию и название движка.
+
+    Если установлена curl_cffi — запросы уходят с отпечатком Chrome, и WB
+    пропускает их. Если нет — работаем обычным requests (может прилететь 403).
+    """
+    if curl_requests is not None:
+        return curl_requests.Session(impersonate="chrome"), "curl_cffi (маскировка под Chrome)"
+    return requests.Session(), "requests (без маскировки)"

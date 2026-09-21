@@ -27,13 +27,13 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-import requests
-
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (  # noqa: E402
     PRODUCT_COLUMNS,
+    curl_requests,
     ensure_parent,
     load_config,
+    make_session,
     read_queries,
     resolve,
 )
@@ -168,7 +168,7 @@ def normalize(item: dict, query: str, rank: int, collected_at: str) -> dict:
     }
 
 
-def fetch_query(session: requests.Session, query: str, wb_cfg: dict) -> dict | None:
+def fetch_query(session, query: str, wb_cfg: dict) -> dict | None:
     """Пробует получить выдачу по запросу. Возвращает сырой JSON или None."""
     params = {
         "ab_testing": "false",
@@ -190,7 +190,7 @@ def fetch_query(session: requests.Session, query: str, wb_cfg: dict) -> dict | N
     for endpoint in SEARCH_ENDPOINTS:
         for attempt in range(1, retries + 1):
             try:
-                response = session.get(endpoint, params=params, timeout=timeout)
+                response = session.get(endpoint, params=params, headers=HEADERS, timeout=timeout)
                 response.raise_for_status()
                 payload = response.json()
                 if extract_products(payload):
@@ -213,8 +213,8 @@ def collect_live(queries: list[str], wb_cfg: dict) -> tuple[list[dict], dict]:
 
     rows: list[dict] = []
     raw: dict[str, dict] = {}
-    session = requests.Session()
-    session.headers.update(HEADERS)
+    session, engine = make_session()
+    print(f"Движок запросов: {engine}")
 
     # если WB недоступен совсем (нет сети / блокировка), нет смысла ждать все 20 запросов
     max_fails_in_row = int(wb_cfg.get("abort_after_failed_queries", 3))
@@ -387,7 +387,10 @@ def main() -> None:
     # Fallback: живых данных нет
     if not args.sample and wb_cfg.get("enabled", True):
         print("\nWildberries не ответил ни по одному запросу — включаю fallback на мок-данные.")
-        print("Проверьте доступность search.wb.ru и актуальность endpoint в SEARCH_ENDPOINTS.")
+        print("Запустите scripts/check_wb.py — он покажет, в чём причина.")
+        if curl_requests is None:
+            print("Совет: поставьте маскировку под Chrome командой  pip install curl_cffi  —")
+            print("обычный requests WB часто отсекает с ошибкой 403.")
 
     rows = load_or_build_sample(sample_path, queries, top_n)
     write_products(products_path, rows)

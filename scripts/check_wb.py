@@ -12,8 +12,10 @@ from __future__ import annotations
 
 import sys
 import time
+from pathlib import Path
 
-import requests
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from common import curl_requests, make_session  # noqa: E402
 
 QUERY = "полотенце"
 
@@ -70,10 +72,10 @@ def count_products(payload) -> int:
     return 0
 
 
-def check_site() -> None:
+def check_site(session) -> None:
     """Открывается ли сам сайт WB — отличает блокировку по IP от смены адреса API."""
     try:
-        response = requests.get(
+        response = session.get(
             "https://www.wildberries.ru/", headers=BROWSER_HEADERS, timeout=15
         )
         print(f"Доступ к сайту wildberries.ru: {response.status_code}")
@@ -88,7 +90,13 @@ def check_site() -> None:
 
 def main() -> None:
     print("Проверка доступа к Wildberries\n" + "=" * 46)
-    check_site()
+    session, engine = make_session()
+    print(f"Движок запросов: {engine}")
+    if curl_requests is None:
+        print("  Подсказка: маскировка под Chrome не установлена.")
+        print("  Поставьте её командой:  py -m pip install curl_cffi")
+        print("  и запустите этот скрипт заново — WB часто пропускает только её.\n")
+    check_site(session)
 
     total = len(VERSIONS) * len(PARAM_SETS) * len(HEADER_SETS)
     print(f"Перебираю {total} вариантов запроса, это примерно минуту.\n")
@@ -100,7 +108,7 @@ def main() -> None:
             for headers_name, headers in HEADER_SETS.items():
                 label = f"{version:<4} | параметры {params_name:<8} | заголовки {headers_name:<10}"
                 try:
-                    response = requests.get(url, params=params, headers=headers, timeout=15)
+                    response = session.get(url, params=params, headers=headers, timeout=15)
                     status = response.status_code
                     if status == 200:
                         try:
@@ -126,8 +134,13 @@ def main() -> None:
         print("Пришлите эту строку — я поправлю сбор под неё.")
     else:
         print("Ни один вариант не сработал.")
-        print("1) Выключите VPN, если он включён, и запустите скрипт ещё раз.")
-        print("2) Если VPN не было — пришлите скриншот этого окна целиком.")
+        if curl_requests is None:
+            print("1) Поставьте маскировку под Chrome:  py -m pip install curl_cffi")
+            print("   и запустите  py scripts\\check_wb.py  ещё раз — это чаще всего помогает.")
+        else:
+            print("1) Маскировка под Chrome уже стоит, но WB всё равно отказывает.")
+            print("   Выключите VPN, если он включён, и попробуйте мобильный интернет.")
+        print("2) Пришлите скриншот этого окна целиком, включая самые верхние строки.")
     sys.stdout.flush()
 
 
