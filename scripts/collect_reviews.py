@@ -25,6 +25,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from export_excel import detect_kind  # noqa: E402
 from common import (  # noqa: E402
     basket_candidates,
     basket_parts,
@@ -208,11 +209,24 @@ def normalize(feedback: dict, product: dict, imt_id: str, collected_at: str) -> 
     }
 
 
-def pick_products(df: pd.DataFrame, top: int, only_nm: str | None) -> list[dict]:
-    """Выбирает карточки для сбора: самые «отзывные», без дублей по артикулу."""
+def pick_products(df: pd.DataFrame, top: int, only_nm: str | None,
+                  kinds: tuple[str, ...] = ("Полотенце", "Коврик", "Халат")) -> list[dict]:
+    """Выбирает карточки для сбора: самые «отзывные», без дублей по артикулу.
+
+    Посторонние товары отсеиваются: в выдаче по запросам вроде «полотенце без
+    отбеливания» попадаются пятновыводители и тряпки для уборки, и их отзывы
+    к нашей категории отношения не имеют.
+    """
     df = df.copy()
     df["review_count"] = pd.to_numeric(df.get("review_count"), errors="coerce").fillna(0)
     df = df.drop_duplicates("product_id")
+
+    if not only_nm:
+        kind = df["title"].map(detect_kind)
+        dropped = int((~kind.isin(kinds)).sum())
+        if dropped:
+            print(f"Отсеяно карточек не из нашей категории: {dropped}")
+        df = df[kind.isin(kinds)]
 
     if only_nm:
         df = df[df["product_id"].astype(str) == str(only_nm)]
