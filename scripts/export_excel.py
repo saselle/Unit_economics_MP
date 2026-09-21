@@ -376,6 +376,46 @@ def build_summary(ws, df: pd.DataFrame, last: int, min_reviews: int, collected: 
         row += 1
 
 
+def build_table_sheet(ws, df: pd.DataFrame, widths: list[int], title: str) -> None:
+    """Просто выкладывает готовую таблицу из CSV с оформлением и фильтром."""
+    ws.cell(row=1, column=1, value=title).font = TITLE_FONT
+    write_header(ws, [str(c) for c in df.columns], row=2)
+    set_widths(ws, widths[:len(df.columns)] or [20] * len(df.columns))
+
+    for i, (_, item) in enumerate(df.iterrows(), start=3):
+        for j, value in enumerate(item, start=1):
+            cell = ws.cell(row=i, column=j)
+            cell.value = None if pd.isna(value) else value
+            cell.font = BODY_FONT
+            cell.border = BORDER
+            cell.alignment = Alignment(wrap_text=j == len(df.columns), vertical="top")
+
+    ws.freeze_panes = "A3"
+    if len(df):
+        ws.auto_filter.ref = f"A2:{get_column_letter(len(df.columns))}{len(df) + 2}"
+    ws.row_dimensions[2].height = 28
+
+
+def add_review_sheets(wb, reports_dir: Path) -> list[str]:
+    """Добавляет листы с разбором отзывов, если он уже посчитан."""
+    added = []
+    sources = [
+        ("Отзывы — темы", reports_dir / "review_themes.csv",
+         [26, 12, 13, 15, 16, 14, 70], "Что хвалят и на что жалуются"),
+        ("Отзывы — товары", reports_dir / "review_by_product.csv",
+         [14, 18, 46, 11, 15, 14, 36, 36], "Отзывы в разрезе карточек конкурентов"),
+    ]
+    for sheet_name, path, widths, title in sources:
+        if not path.exists():
+            continue
+        df = pd.read_csv(path)
+        if df.empty:
+            continue
+        build_table_sheet(wb.create_sheet(sheet_name), df, widths, title)
+        added.append(sheet_name)
+    return added
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Excel-отчёт по собранным карточкам")
     parser.add_argument("--config", default="config.yaml")
@@ -419,9 +459,16 @@ def main() -> None:
     build_prices(ws_prices, df, last, buckets)
     build_summary(ws_summary, df, last, min_reviews, collected)
 
+    review_sheets = add_review_sheets(wb, reports_dir)
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(out_path)
     print(f"Готово: {out_path}")
+    if review_sheets:
+        print("Добавлены листы с отзывами: " + ", ".join(f"«{s}»" for s in review_sheets))
+    else:
+        print("Листов с отзывами нет — сначала scripts/collect_reviews.py "
+              "и scripts/analyze_reviews.py")
     print("Откройте файл в Excel — все цифры на листах-срезах пересчитываются формулами.")
 
 
