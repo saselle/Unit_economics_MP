@@ -30,6 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (  # noqa: E402
     PRODUCT_COLUMNS,
+    basket_image_url as image_url,
     curl_requests,
     ensure_parent,
     load_config,
@@ -63,35 +64,9 @@ HEADERS = {
     "Referer": "https://www.wildberries.ru/",
 }
 
-# Диапазоны корзин для картинок WB. Мапинг иногда меняется — если картинки
-# перестали открываться, обновите таблицу (или просто игнорируйте поле image_url).
-BASKET_RANGES = [
-    (143, "01"), (287, "02"), (431, "03"), (719, "04"), (1007, "05"),
-    (1061, "06"), (1115, "07"), (1169, "08"), (1313, "09"), (1601, "10"),
-    (1655, "11"), (1919, "12"), (2045, "13"), (2189, "14"), (2405, "15"),
-    (2621, "16"), (2837, "17"), (3053, "18"), (3269, "19"), (3485, "20"),
-    (3701, "21"), (3917, "22"), (4133, "23"), (4349, "24"), (4565, "25"),
-]
-
-
 # --------------------------------------------------------------------------- #
 #  Работа с WB
 # --------------------------------------------------------------------------- #
-def image_url(nm_id: int) -> str:
-    """Собирает ссылку на главное фото карточки по её артикулу."""
-    try:
-        vol = int(nm_id) // 100_000
-        part = int(nm_id) // 1_000
-    except (TypeError, ValueError):
-        return ""
-    host = "26"
-    for upper, candidate in BASKET_RANGES:
-        if vol <= upper:
-            host = candidate
-            break
-    return f"https://basket-{host}.wbbasket.ru/vol{vol}/part{part}/{nm_id}/images/big/1.webp"
-
-
 def kopecks(value) -> str:
     """WB отдаёт цены в копейках. Возвращаем рубли строкой, пустую — если нет данных."""
     try:

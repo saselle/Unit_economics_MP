@@ -110,3 +110,50 @@ def make_session() -> tuple[object, str]:
     if curl_requests is not None:
         return curl_requests.Session(impersonate="chrome"), "curl_cffi (маскировка под Chrome)"
     return requests.Session(), "requests (без маскировки)"
+
+
+# Диапазоны корзин WB для картинок и card.json. Таблица со временем устаревает,
+# поэтому basket_candidates() отдаёт расчётный хост первым, а дальше — перебор.
+BASKET_RANGES = [
+    (143, 1), (287, 2), (431, 3), (719, 4), (1007, 5), (1061, 6), (1115, 7),
+    (1169, 8), (1313, 9), (1601, 10), (1655, 11), (1919, 12), (2045, 13),
+    (2189, 14), (2405, 15), (2621, 16), (2837, 17), (3053, 18), (3269, 19),
+    (3485, 20), (3701, 21), (3917, 22), (4133, 23), (4349, 24), (4565, 25),
+]
+MAX_BASKET = 60
+
+
+def basket_parts(nm_id) -> tuple[int, int]:
+    """Артикул -> (vol, part) для адресов вида /vol{vol}/part{part}/."""
+    nm = int(nm_id)
+    return nm // 100_000, nm // 1_000
+
+
+def basket_number(nm_id) -> int:
+    """Расчётный номер корзины по таблице диапазонов."""
+    vol, _ = basket_parts(nm_id)
+    for upper, number in BASKET_RANGES:
+        if vol <= upper:
+            return number
+    # выше таблицы WB нарезает корзины шагом примерно 312 томов
+    return min(26 + (vol - 4566) // 312, MAX_BASKET)
+
+
+def basket_candidates(nm_id, first: int | None = None) -> list[int]:
+    """Номера корзин в порядке проверки: подсказка, расчёт, затем остальные."""
+    order = []
+    for number in (first, basket_number(nm_id)):
+        if number and number not in order:
+            order.append(number)
+    order += [n for n in range(1, MAX_BASKET + 1) if n not in order]
+    return order
+
+
+def basket_image_url(nm_id) -> str:
+    """Ссылка на главное фото карточки."""
+    try:
+        vol, part = basket_parts(nm_id)
+    except (TypeError, ValueError):
+        return ""
+    return (f"https://basket-{basket_number(nm_id):02d}.wbbasket.ru"
+            f"/vol{vol}/part{part}/{nm_id}/images/big/1.webp")

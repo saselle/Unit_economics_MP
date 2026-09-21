@@ -25,9 +25,25 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import curl_requests, ensure_parent, load_config, make_session, resolve  # noqa: E402
+from common import (  # noqa: E402
+    basket_candidates,
+    basket_parts,
+    curl_requests,
+    ensure_parent,
+    load_config,
+    make_session,
+    resolve,
+)
 
-CARD_DETAIL_URL = "https://card.wb.ru/cards/v2/detail"
+# WB регулярно меняет версию карточного API, поэтому пробуем несколько.
+CARD_DETAIL_URLS = [
+    "https://card.wb.ru/cards/v4/detail",
+    "https://card.wb.ru/cards/v3/detail",
+    "https://card.wb.ru/cards/v2/detail",
+    "https://card.wb.ru/cards/v1/detail",
+    "https://u-card.wb.ru/cards/v4/detail",
+    "https://u-card.wb.ru/cards/v2/detail",
+]
 FEEDBACK_URLS = [
     "https://feedbacks1.wb.ru/feedbacks/v2/{imt}",
     "https://feedbacks2.wb.ru/feedbacks/v2/{imt}",
@@ -52,22 +68,64 @@ REVIEW_COLUMNS = [
 ]
 
 
-def get_imt_id(session, nm_id: str, dest: int, timeout: float) -> str | None:
-    """Артикул -> id карточки-родителя, по которому лежат отзывы."""
+def imt_from_card_api(session, nm_id: str, dest: int, timeout: float) -> str | None:
+    """Способ 1: карточный API. Отдаёт imt_id в поле root."""
     params = {"appType": 1, "curr": "rub", "dest": dest, "spp": 30,
               "hide_dtype": 13, "lang": "ru", "nm": nm_id}
+    for url in CARD_DETAIL_URLS:
+        try:
+            response = session.get(url, params=params, headers=HEADERS, timeout=timeout)
+            if response.status_code != 200:
+                continue
+            products = ((response.json() or {}).get("data") or {}).get("products") or []
+            if products:
+                imt = products[0].get("root") or products[0].get("imtId")
+                if imt:
+                    return str(imt)
+        except Exception:
+            continue
+    return None
+
+
+def imt_from_basket(session, nm_id: str, timeout: float, hint: int | None) -> tuple[str | None, int | None]:
+    """Способ 2: card.json в корзине. Возвращает (imt_id, номер сработавшей корзины).
+
+    Номер корзины считается по таблице диапазонов, но WB её иногда меняет,
+    поэтому при промахе просто перебираем остальные. Удачный номер запоминаем
+    и пробуем первым для следующих товаров — обычно соседние артикулы лежат рядом.
+    """
     try:
-        response = session.get(CARD_DETAIL_URL, params=params, headers=HEADERS, timeout=timeout)
-        if response.status_code != 200:
-            print(f"    карточка {nm_id}: ответ {response.status_code}")
-            return None
-        products = ((response.json() or {}).get("data") or {}).get("products") or []
-        if not products:
-            return None
-        return str(products[0].get("root") or products[0].get("imtId") or "") or None
-    except Exception as exc:
-        print(f"    карточка {nm_id}: {type(exc).__name__}: {str(exc)[:80]}")
-        return None
+        vol, part = basket_parts(nm_id)
+    except (TypeError, ValueError):
+        return None, hint
+
+    for attempt, number in enumerate(basket_candidates(nm_id, hint), start=1):
+        url = (f"https://basket-{number:02d}.wbbasket.ru"
+               f"/vol{vol}/part{part}/{nm_id}/info/ru/card.json")
+        try:
+            response = session.get(url, headers=HEADERS, timeout=timeout)
+            if response.status_code != 200:
+                continue
+            imt = (response.json() or {}).get("imt_id")
+            if imt:
+                if attempt > 1:
+                    print(f"    товар нашёлся в basket-{number:02d} (проб: {attempt})")
+                return str(imt), number
+        except Exception:
+            continue
+    return None, hint
+
+
+def get_imt_id(session, nm_id: str, dest: int, timeout: float,
+               hint: int | None = None) -> tuple[str | None, int | None]:
+    """Артикул -> id карточки-родителя, по которому лежат отзывы."""
+    imt = imt_from_card_api(session, nm_id, dest, timeout)
+    if imt:
+        return imt, hint
+    if hint is None:
+        print("    карточный API не отвечает, ищу товар по корзинам WB "
+              "(первый товар — до минуты, дальше быстро)")
+    return imt_from_basket(session, nm_id, timeout, hint)
 
 
 def fetch_feedbacks(session, imt_id: str, timeout: float) -> list[dict]:
@@ -178,13 +236,14 @@ def main() -> None:
     collected_at = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     rows: list[dict] = []
     raw: dict[str, list] = {}
+    basket_hint: int | None = None  # номер корзины, сработавший на прошлом товаре
 
     for i, product in enumerate(products, start=1):
         nm = product["product_id"]
         title = (product.get("title") or "")[:48]
         print(f"[{i}/{len(products)}] {nm} {title}")
 
-        imt_id = get_imt_id(session, nm, dest, timeout)
+        imt_id, basket_hint = get_imt_id(session, nm, dest, timeout, basket_hint)
         if not imt_id:
             print("    не удалось узнать id карточки, пропускаю")
             time.sleep(delay)
@@ -212,6 +271,8 @@ def main() -> None:
             print("Поставьте маскировку под Chrome:  py -m pip install curl_cffi")
         else:
             print("Проверьте доступ к WB командой:  py scripts\\check_wb.py")
+            print("Если поиск работает, а отзывы нет — пришлите этот экран: "
+                  "значит, WB снова сменил адреса карточек или отзывов.")
         return
 
     write_reviews(reviews_path, rows)
