@@ -32,6 +32,8 @@ pip install -r requirements.txt
 python scripts/collect_wb.py        # 1. сбор карточек с Wildberries
 python scripts/analyze_products.py  # 2. аналитика
 python scripts/generate_report.py   # 3. отчёты в Markdown
+python scripts/export_excel.py      # 4. тот же отчёт в Excel
+python scripts/export_docx.py       # 5. выводы в Word
 ```
 
 Сбор 20 запросов занимает примерно 1–2 минуты (между запросами стоит пауза,
@@ -55,6 +57,13 @@ python scripts/collect_wb.py --top-n 30   # брать по 30 карточек 
 | `reports/query_analysis.csv` | Цифры по каждому поисковому запросу |
 | `reports/format_analysis.csv` | Цифры по форматам товара (набор, банное, бамбук и т. д.) |
 | `reports/price_buckets.csv` | Сколько карточек в каждой ценовой корзине |
+| `reports/marketplace_report.xlsx` | **Excel**: сводка, все карточки с фильтрами, срезы по запросам, форматам и ценам |
+| `reports/Отчёт_по_рынку.docx` | **Word**: выводы под запуск — файл, который не стыдно отправить клиенту |
+
+Цифры на листах Excel — формулы, считающие от листа «Карточки»: отфильтруете или
+дополните данные — отчёт пересчитается сам. Использованы только функции,
+понятные любой версии Excel (`COUNTIF`, `AVERAGEIFS`, `QUARTILE`), без новых
+формул-массивов.
 
 Начинать чтение стоит с `reports/launch_recommendations.md`.
 

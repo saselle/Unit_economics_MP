@@ -3,3 +3,5 @@ pandas>=2.0             # агрегация и группировки в ана
 pyyaml>=6.0             # чтение config.yaml
 python-dateutil>=2.8    # разбор дат (зависимость pandas, фиксируем явно)
 curl_cffi>=0.7          # маскировка под браузер Chrome: без неё WB отвечает 403
+openpyxl>=3.1           # выгрузка отчёта в Excel (scripts/export_excel.py)
+python-docx>=1.1        # выгрузка отчёта в Word (scripts/export_docx.py)
