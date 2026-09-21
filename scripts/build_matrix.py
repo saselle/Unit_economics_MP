@@ -119,7 +119,12 @@ def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
     row = 4
     for _, item in matrix.iterrows():
         colors = str(item.get("colors", ""))
-        positions = len([c for c in colors.split(",") if c.strip()])
+        size = str(item.get("size", ""))
+        # у халатов в поле размера лежит ростовка («S/M, L/XL, XXL»), и каждая
+        # ростовка — отдельная товарная позиция, поэтому цвета умножаются на них
+        runs = [s for s in size.split(",") if s.strip()]
+        size_runs = len(runs) if len(runs) > 1 else 1
+        positions = len([c for c in colors.split(",") if c.strip()]) * size_runs
         bench = str(item.get("benchmark_size", "")).strip()
 
         values = [
@@ -133,12 +138,19 @@ def build_matrix(ws, matrix: pd.DataFrame, market_last: int) -> int:
             cell.border = BORDER
             cell.alignment = Alignment(wrap_text=j in (5, 8, 3), vertical="top")
 
-        # бенчмарк по размеру: сколько таких карточек в выдаче и почём
-        ws.cell(row=row, column=11, value=f'=COUNTIF({size_rng},"{bench}")')
-        ws.cell(row=row, column=12,
-                value=f'=IFERROR(AVERAGEIFS({price_rng},{size_rng},"{bench}"),"нет данных")')
-        ws.cell(row=row, column=13,
-                value=f'=IFERROR(AVERAGEIFS({reviews_rng},{size_rng},"{bench}"),"нет данных")')
+        # бенчмарк по размеру: сколько таких карточек в выдаче и почём.
+        # Пустой benchmark_size — это товар, для которого размер в названии не ищется
+        # (халаты продаются в размерах одежды): ставим прочерк, а не формулу,
+        # иначе COUNTIF посчитал бы пустые ячейки листа «Рынок».
+        if bench:
+            ws.cell(row=row, column=11, value=f'=COUNTIF({size_rng},"{bench}")')
+            ws.cell(row=row, column=12,
+                    value=f'=IFERROR(AVERAGEIFS({price_rng},{size_rng},"{bench}"),"нет данных")')
+            ws.cell(row=row, column=13,
+                    value=f'=IFERROR(AVERAGEIFS({reviews_rng},{size_rng},"{bench}"),"нет данных")')
+        else:
+            for col in (11, 12, 13):
+                ws.cell(row=row, column=col, value="собрать отдельно")
 
         target = ws.cell(row=row, column=14, value=float(item.get("target_price", 0) or 0))
         target.font = INPUT_FONT
