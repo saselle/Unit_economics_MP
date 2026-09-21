@@ -54,6 +54,7 @@ python scripts/analyze_products.py  # 2. аналитика
 python scripts/generate_report.py   # 3. отчёты в Markdown
 python scripts/export_excel.py      # 4. тот же отчёт в Excel
 python scripts/export_docx.py       # 5. выводы в Word
+python scripts/build_matrix.py      # 6. матрица SKU + заготовка юнит-экономики
 ```
 
 Отдельный блок — отзывы конкурентов (нужен уже собранный `data/products.csv`):
@@ -94,6 +95,8 @@ python scripts/collect_wb.py --top-n 30   # брать по 30 карточек 
 | `reports/review_themes.csv` | Темы отзывов: частота, средний рейтинг, доля негатива, пример |
 | `reports/review_by_product.csv` | Главные жалобы и плюсы по каждой карточке конкурента |
 | `reports/marketplace_report.xlsx` | **Excel**: сводка, все карточки с фильтрами, срезы по запросам, форматам и ценам |
+| `data/sku_matrix.csv` | Матрица SKU: размеры, цвета, плотность, состав, таргет по цене — правится вручную |
+| `reports/Матрица_SKU.xlsx` | **Excel**: матрица с бенчмарком от выдачи, срез по цветам из отзывов и заготовка юнит-экономики |
 | `reports/Отчёт_по_рынку.docx` | **Word**: выводы под запуск — файл, который не стыдно отправить клиенту |
 
 Цифры на листах Excel — формулы, считающие от листа «Карточки»: отфильтруете или

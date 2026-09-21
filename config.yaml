@@ -22,6 +22,7 @@ output:
   raw_wb_file: data/raw_wb_products.json
   sample_file: data/sample_products.csv
   reviews_file: data/reviews.csv
+  matrix_file: data/sku_matrix.csv
   raw_reviews_file: data/raw_wb_reviews.json
   reports_dir: reports
 
